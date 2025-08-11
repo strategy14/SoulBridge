@@ -11,6 +11,7 @@ $search_term = isset($_GET['search']) ? trim($_GET['search']) : '';
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <script src="https://kit.fontawesome.com/ce328ec234.js" crossorigin="anonymous"></script>
         <link rel="stylesheet" href="/assets/css/style.css" />
+    <link rel="stylesheet" href="/assets/css/responsive.css" />
     <script src="/assets/js/home.js" defer></script>
     <style>
         .right .request .action button {
@@ -46,44 +47,36 @@ $search_term = isset($_GET['search']) ? trim($_GET['search']) : '';
     <!-- Middle section -->
     <div class="middle">
         <!-- Stories section -->
-        <div class="stories" onclick="showCustomMessage('This feature is not available yet')">
-            <div class="story">
+        <div class="stories">
+            <!-- Add Story Button -->
+            <div class="story add-story" onclick="document.getElementById('storyUpload').click()">
                 <div class="profile-photo">
-                    <img src="./images/profile-8.jpg" alt="" />
+                    <img src="<?= htmlspecialchars($data['user']['avatar'] ?? 'images/profile.jpg') ?>" alt="Your Story">
+                    <div class="add-icon">+</div>
                 </div>
                 <p class="name">Your Story</p>
             </div>
-            <div class="story">
+            
+            <!-- Display Active Stories -->
+            <?php 
+            $stories = $queryBuilder->getActiveStories();
+            foreach($stories as $story): 
+            ?>
+            <div class="story" data-story-id="<?= $story['id'] ?>">
                 <div class="profile-photo">
-                    <img src="./images/profile-9.jpg" alt="" />
+                    <img src="<?= htmlspecialchars($story['avatar'] ?? 'images/profile.jpg') ?>" alt="Story">
                 </div>
-                <p class="name">Lilla james</p>
+                <p class="name"><?= htmlspecialchars($story['firstName']) ?></p>
             </div>
-            <div class="story">
-                <div class="profile-photo">
-                    <img src="./images/profile-10.jpg" alt="" />
-                </div>
-                <p class="name">winnie hele</p>
-            </div>
-            <div class="story">
-                <div class="profile-photo">
-                    <img src="./images/profile-11.jpg" alt="" />
-                </div>
-                <p class="name">danial Bale</p>
-            </div>
-            <div class="story">
-                <div class="profile-photo">
-                    <img src="./images/profile-12.jpg" alt="" />
-                </div>
-                <p class="name">Jane doe</p>
-            </div>
-            <div class="story">
-                <div class="profile-photo">
-                    <img src="./images/profile-13.jpg" alt="" />
-                </div>
-                <p class="name">Tine white</p>
-            </div>
+            <?php endforeach; ?>
         </div>
+        
+        <!-- Hidden Story Upload Form -->
+        <form action="story-upload" method="POST" enctype="multipart/form-data" style="display: none;">
+            <input type="file" id="storyUpload" name="story_media" accept="image/*,video/*" onchange="this.form.submit()">
+            <input type="hidden" name="csrf_token" value="<?= $data['csrf_token'] ?>">
+        </form>
+        
         <!-- Create post form -->
         <form action="post-create" method="POST" enctype="multipart/form-data">
             <div class="create-post">
@@ -120,37 +113,9 @@ $search_term = isset($_GET['search']) ? trim($_GET['search']) : '';
                 </div>
                 <div class="image-preview" id="imagePreview" style="display: none; position: relative;">
                     <img id="previewImg" src="" alt="Image Preview" style="max-width: 100%; height: auto;">
-                    <span id="closePreview" style="position: absolute; top: 10px; right: 10px; background: rgba(0, 0, 0, 0.5); color: white; border-radius: 50%; padding: 5px; cursor: pointer;">&times;</span>
+                    <video id="previewVideo" controls style="max-width: 100%; height: auto; display: none;"></video>
+                    <span id="closePreview" style="position: absolute; top: 10px; right: 10px; background: rgba(0, 0, 0, 0.5); color: white; border-radius: 50%; padding: 5px 8px; cursor: pointer; font-size: 16px;">&times;</span>
                 </div>
-                <script>
-                    function previewImage(event) {
-                        const input = event.target;
-                        const preview = document.getElementById('imagePreview');
-                        const previewImg = document.getElementById('previewImg');
-                        const file = input.files[0];
-
-                        if (file) {
-                            const reader = new FileReader();
-                            reader.onload = function(e) {
-                                previewImg.src = e.target.result;
-                                preview.style.display = 'block';
-                            }
-                            reader.readAsDataURL(file);
-                        } else {
-                            preview.style.display = 'none';
-                        }
-                    }
-
-                    document.getElementById('closePreview').addEventListener('click', function() {
-                        const preview = document.getElementById('imagePreview');
-                        const previewImg = document.getElementById('previewImg');
-                        const inputFile = document.getElementById('imagefile');
-
-                        previewImg.src = '';
-                        preview.style.display = 'none';
-                        inputFile.value = '';
-                    });
-                </script>
             </div>
         </form>
         <!-- Posts section -->
@@ -201,25 +166,23 @@ $search_term = isset($_GET['search']) ? trim($_GET['search']) : '';
                         <?php endif; ?>
                         <div class="action-button">
                             <div class="interaction-buttons">
-                                <span class="like-btn">
-                                    <a href="#" class="btn btn-sm btn-outline-primary like-link">
+                                <span class="like-btn" data-post-id="<?= $post['post_id'] ?>">
+                                    <a href="#" class="like-link">
                                         <?php
-                                        // Ensure $queryBuilder is available here
                                         $like_count = $queryBuilder->getLikesCountForPost($post['post_id']);
                                         $liked = $queryBuilder->hasUserLikedPost($_SESSION['user_id'], $post['post_id']);
                                         ?>
                                         <i class="<?= $liked ? 'fa-solid' : 'fa-regular' ?> fa-heart" style="<?= $liked ? 'color: red;' : '' ?>"></i>
-                                        <span class="like-count"><i style="font-size: large;"><?= $like_count; ?></i></span>
+                                        <span class="like-count"><i style="font-size: large;"><?= $like_count ?></i></span>
                                     </a>
                                 </span>
-                                <a href="comments?post_id=<?php echo $post['post_id']; ?>"><span class="comment-btn">
+                                <span class="comment-btn">
                                     <?php
                                     $comment_count = $queryBuilder->getCommentsCountForPost($post['post_id']);
                                     ?>
                                     <i class="fa-regular fa-comment"></i>
-                                    <span class="comment-count"><i style="font-size: large;"><?= $comment_count; ?></i></span>
+                                    <span class="comment-count"><i style="font-size: large;"><?= $comment_count ?></i></span>
                                 </span>
-                                </a>
                             </div>
                             <div class="bookmark">
                                 <span><i class=""></i></span>

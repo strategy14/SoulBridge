@@ -577,9 +577,26 @@ main .container .left .profile:hover {
 .middle .stories {
   display: flex;
   height: 12rem;
-  justify-content: space-between;
   gap: 0.5rem;
-  cursor: pointer;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.5rem 0;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+.middle .stories::-webkit-scrollbar {
+  height: 4px;
+}
+
+.middle .stories::-webkit-scrollbar-track {
+  background: var(--color-light);
+  border-radius: 2px;
+}
+
+.middle .stories::-webkit-scrollbar-thumb {
+  background: var(--color-primary);
+  border-radius: 2px;
 }
 
 .middle .stories .story {
@@ -591,10 +608,39 @@ main .container .left .profile:hover {
   align-items: center;
   color: white;
   font-size: 0.75rem;
-  width: 100%;
+  min-width: 120px;
+  width: 120px;
   position: relative;
   overflow: hidden;
   cursor: pointer;
+  transition: transform 0.3s ease;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+}
+
+.middle .stories .story:hover {
+  transform: translateY(-5px);
+}
+
+.middle .stories .story.add-story {
+  background: var(--color-white);
+  color: var(--color-dark);
+  border: 2px dashed var(--color-primary);
+}
+
+.middle .stories .story.add-story .add-icon {
+  position: absolute;
+  bottom: 20px;
+  right: 10px;
+  background: var(--color-primary);
+  color: white;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: bold;
 }
 
 .middle .stories .story::before {
@@ -609,36 +655,92 @@ main .container .left .profile:hover {
 
 .middle .stories .story .name {
   z-index: 2;
-}
-
-.middle .stories .story:nth-child(1) {
-  background: url(/images/story-1.jpg) no-repeat center center/cover;
-}
-
-.middle .stories .story:nth-child(2) {
-  background: url(/images/story-2.jpg) no-repeat center center/cover;
-}
-
-.middle .stories .story:nth-child(3) {
-  background: url(/images/story-3.jpg) no-repeat center center/cover;
-}
-
-.middle .stories .story:nth-child(4) {
-  background: url(/images/story-4.jpg) no-repeat center center/cover;
-}
-
-.middle .stories .story:nth-child(5) {
-  background: url(/images/story-5.jpg) no-repeat center center/cover;
-}
-
-.middle .stories .story:nth-child(6) {
-  background: url(/images/story-6.jpg) no-repeat center center/cover;
+  text-align: center;
+  font-weight: 500;
 }
 
 .middle .story .profile-photo {
   width: 2rem;
   height: 2rem;
   border: 3px solid var(--color-primary);
+  position: relative;
+}
+
+/* Story Modal Styles */
+.story-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.story-viewer {
+  max-width: 400px;
+  width: 90%;
+  height: 80%;
+  background: var(--color-white);
+  border-radius: var(--card-border-radius);
+  overflow: hidden;
+  position: relative;
+}
+
+.story-header {
+  padding: 1rem;
+  background: var(--color-primary);
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.story-progress {
+  flex: 1;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+  margin-right: 1rem;
+}
+
+.close-story {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.story-content {
+  height: calc(100% - 60px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.story-media-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.story-media-container img,
+.story-media-container video {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 
 /* ==========================--- Create post section----============================================= */

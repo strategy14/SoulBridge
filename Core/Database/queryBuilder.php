@@ -406,15 +406,69 @@
         $stmt->execute(['userId' => $userId]);
     }
     public function likePost($userId, $postId) {
-        $sql = "INSERT IGNORE INTO likes (user_id, post_id) VALUES (:userId, :postId)";
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute(['userId' => $userId, 'postId' => $postId]);
+        // Check if already liked
+        $checkSql = "SELECT id FROM likes WHERE userId = :userId AND postId = :postId";
+        $checkStmt = $this->pdo->prepare($checkSql);
+        $checkStmt->execute(['userId' => $userId, 'postId' => $postId]);
+        
+        if (!$checkStmt->fetch()) {
+            $sql = "INSERT INTO likes (userId, postId) VALUES (:userId, :postId)";
+            $stmt = $this->pdo->prepare($sql);
+            $result = $stmt->execute(['userId' => $userId, 'postId' => $postId]);
+            
+            // Add notification for like
+            if ($result) {
+                $postOwnerSql = "SELECT userId FROM posts WHERE id = :postId";
+                $postOwnerStmt = $this->pdo->prepare($postOwnerSql);
+                $postOwnerStmt->execute(['postId' => $postId]);
+                $postOwner = $postOwnerStmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($postOwner && $postOwner['userId'] != $userId) {
+                    $this->addNotification($userId, $postOwner['userId'], "liked your post.", $postId);
+                }
+            }
+            return $result;
+        }
+        return false;
     }
 
     public function unlikePost($userId, $postId) {
-        $sql = "DELETE FROM likes WHERE user_id = :userId AND post_id = :postId";
+        $sql = "DELETE FROM likes WHERE userId = :userId AND postId = :postId";
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute(['userId' => $userId, 'postId' => $postId]);
+        return $stmt->execute(['userId' => $userId, 'postId' => $postId]);
+    }
+
+    // Story functionality
+    public function addStory($userId, $media, $mediaType = 'image') {
+        $sql = "INSERT INTO stories (userId, media, mediaType, created_at, expires_at) 
+                VALUES (:userId, :media, :mediaType, NOW(), DATE_ADD(NOW(), INTERVAL 24 HOUR))";
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute([
+            'userId' => $userId, 
+            'media' => $media, 
+            'mediaType' => $mediaType
+        ]);
+    }
+
+    public function getActiveStories() {
+        $sql = "SELECT s.*, u.firstName, u.lastName, p.avatar 
+                FROM stories s
+                JOIN users u ON s.userId = u.id
+                LEFT JOIN profiles p ON u.id = p.id
+                WHERE s.expires_at > NOW()
+                ORDER BY s.created_at DESC";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function getUserStories($userId) {
+        $sql = "SELECT * FROM stories 
+                WHERE userId = :userId AND expires_at > NOW()
+                ORDER BY created_at DESC";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute(['userId' => $userId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function getProfilePosts($profile_user_id) {

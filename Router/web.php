@@ -20,6 +20,7 @@ return $routes = [
         '/like' => 'PagesController@likePost',
         '/comment' => 'PagesController@commentHandler',
         '/sendMessage' =>'PagesController@sendMessage',
-        '/friendRequest' => 'PagesController@friendRequest'
+        '/friendRequest' => 'PagesController@friendRequest',
+        '/story-upload' => 'PagesController@storyUpload'
     ]
 ];

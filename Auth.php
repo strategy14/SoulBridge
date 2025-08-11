@@ -1,5 +1,4 @@
 <?php
-session_start();
 require_once 'Core/bootstrap.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -13,6 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['userData'] = $queryBuilder->getUserData($user['id']);
             $_SESSION['user_email'] = $user['email'];
             $_SESSION['user_id'] = $user['id'];
+            $_SESSION['csrf_token'] = SessionManager::generateCSRFToken();
             header("Location: /home");
             exit();
         } else {
@@ -45,6 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $user = $queryBuilder->select('users', 'id', 'email = :email', ['email' => $email]);
                 $_SESSION['user_id'] = $user[0]['id'];
                 $_SESSION['user_email'] = $email;
+                $_SESSION['csrf_token'] = SessionManager::generateCSRFToken();
                 echo "<script>alert('Signup successful! Redirecting to home page.'); window.location.href = '/home';</script>";
             } else {
                 echo "<script>alert('Error during signup.');</script>";

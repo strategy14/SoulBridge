@@ -181,15 +181,39 @@ class PagesController {
     public function storyUpload() {
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SESSION['user_id'])) {
             $userId = $_SESSION['user_id'];
+            
             if (isset($_FILES['story_media']) && $_FILES['story_media']['error'] === UPLOAD_ERR_OK) {
+                $fileType = $_FILES['story_media']['type'];
+                $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'video/mp4', 'video/webm'];
+                $maxSize = 20 * 1024 * 1024; // 20MB for stories
+                
+                if (!in_array($fileType, $allowedTypes) || $_FILES['story_media']['size'] > $maxSize) {
+                    header('Location: /home?error=invalid_story_file');
+                    exit();
+                }
+                
                 $uploadDir = 'uploads/stories/';
                 if (!is_dir($uploadDir)) {
                     mkdir($uploadDir, 0777, true);
                 }
+                
                 $fileTmp = $_FILES['story_media']['tmp_name'];
-                $fileName = time() . '_' . basename($_FILES['story_media']['name']);
+                $fileExtension = pathinfo($_FILES['story_media']['name'], PATHINFO_EXTENSION);
+                $fileName = uniqid() . '_' . time() . '.' . $fileExtension;
                 $filePath = $uploadDir . $fileName;
-                move_uploaded_file($fileTmp, $filePath);
+                
+                if (move_uploaded_file($fileTmp, $filePath)) {
+                    $queryBuilder = new queryBuilder();
+                    $mediaType = strpos($fileType, 'video') !== false ? 'video' : 'image';
+                    $queryBuilder->addStory($userId, $filePath, $mediaType);
+                }
+            }
+            header('Location: /home');
+            exit();
+        }
+        header('Location: /home');
+        exit();
+    }
 
                 $queryBuilder = new queryBuilder();
                 $queryBuilder->addStory($userId, $filePath);
@@ -220,35 +244,94 @@ class PagesController {
     }
     public function likePost() {
         header('Content-Type: application/json');
+        
         if (!isset($_SESSION['user_id'])) {
             echo json_encode(['success' => false, 'error' => 'Not logged in']);
             exit;
         }
+        
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'error' => 'Invalid request method']);
+            exit;
+        }
+        
         $input = json_decode(file_get_contents('php://input'), true);
         if (!isset($input['post_id'], $input['action'])) {
             echo json_encode(['success' => false, 'error' => 'Invalid input']);
             exit;
         }
+        
         $userId = $_SESSION['user_id'];
         $postId = (int)$input['post_id'];
         $action = $input['action'];
 
         $queryBuilder = new queryBuilder();
 
-        if ($action === 'like') {
-            $queryBuilder->likePost($userId, $postId);
-        } else {
-            $queryBuilder->unlikePost($userId, $postId);
-        }
-        $like_count = $queryBuilder->getLikesCountForPost($postId);
-        $liked = $queryBuilder->hasUserLikedPost($userId, $postId);
+        try {
+            if ($action === 'like') {
+                $result = $queryBuilder->likePost($userId, $postId);
+            } elseif ($action === 'unlike') {
+                $result = $queryBuilder->unlikePost($userId, $postId);
+            } else {
+                echo json_encode(['success' => false, 'error' => 'Invalid action']);
+                exit;
+            }
+            
+            $like_count = $queryBuilder->getLikesCountForPost($postId);
+            $liked = $queryBuilder->hasUserLikedPost($userId, $postId);
 
-        echo json_encode([
-            'success' => true,
-            'like_count' => $like_count,
-            'liked' => $liked
-        ]);
+            echo json_encode([
+                'success' => true,
+                'like_count' => $like_count,
+                'liked' => $liked
+            ]);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'error' => 'Database error']);
+        }
         exit;
+    }
+
+    public function commentHandler() {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SESSION['user_id'])) {
+            $queryBuilder = new queryBuilder();
+            $userId = $_SESSION['user_id'];
+            $postId = (int)$_POST['post_id'];
+            $comment = trim($_POST['comment']);
+            
+            if (isset($_POST['csrf_token']) && $_POST['csrf_token'] === $_SESSION['csrf_token']) {
+                if (!empty($comment)) {
+                    $result = $queryBuilder->addComment($userId, $postId, $comment);
+                    
+                    if ($result) {
+                        // Add notification for comment
+                        $postOwnerSql = "SELECT userId FROM posts WHERE id = :postId";
+                        $stmt = $queryBuilder->pdo->prepare($postOwnerSql);
+                        $stmt->execute(['postId' => $postId]);
+                        $postOwner = $stmt->fetch(PDO::FETCH_ASSOC);
+                        
+                        if ($postOwner && $postOwner['userId'] != $userId) {
+                            $queryBuilder->addNotification($userId, $postOwner['userId'], "commented on your post.", $postId);
+                        }
+                    }
+                }
+                
+                // Return JSON for AJAX requests
+                if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && 
+                    strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
+                    header('Content-Type: application/json');
+                    echo json_encode(['success' => true, 'message' => 'Comment added successfully']);
+                    exit;
+                }
+                
+                header('Location: /home');
+                exit();
+            } else {
+                header('Location: /?message=Invalid CSRF token.');
+                exit();
+            }
+        }
+        header('Location: /home');
+        exit();
     }
 
 public function message() {
@@ -288,17 +371,47 @@ public function message() {
     // Start chat if requested
     if (isset($_GET['start_chat'])) {
         $other_user_id = (int)$_GET['user_id'];
-        $chat_id = $queryBuilder->findExistingChat($current_user_id, $other_user_id);
+                // Handle file upload with validation
         if (!$chat_id) {
+                $allowedImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+                $allowedVideoTypes = ['video/mp4', 'video/webm', 'video/ogg'];
+                $maxFileSize = 50 * 1024 * 1024; // 50MB
+                
             $chat_id = $queryBuilder->createNewChat($current_user_id, $other_user_id);
-        }
+                    $fileType = $_FILES['fileUpload']['type'];
+                    $fileSize = $_FILES['fileUpload']['size'];
+                    
+                    // Validate file type and size
+                    if (!in_array($fileType, array_merge($allowedImageTypes, $allowedVideoTypes))) {
+                        header('Location: /home?error=invalid_file_type');
+                        exit();
+                    }
+                    
+                    if ($fileSize > $maxFileSize) {
+                        header('Location: /home?error=file_too_large');
+                        exit();
+                    }
+                    
+                    // Determine upload directory based on file type
+                    if (in_array($fileType, $allowedVideoTypes)) {
+                        $uploadDir = 'uploads/videos/';
+                    } else {
+                        $uploadDir = 'uploads/images/';
+                    }
+                    
         header("Location: /message?chat_id=$chat_id");
         exit();
     }
+                    
 
-    // Get messages for chat if chat_id is set (use GET, not POST)
+                    $fileExtension = pathinfo($_FILES['fileUpload']['name'], PATHINFO_EXTENSION);
+                    $fileName = uniqid() . '_' . time() . '.' . $fileExtension;
     $messages = [];
-    if (isset($_GET['chat_id'])) {
+                    
+                    if (!move_uploaded_file($fileTmp, $filePath)) {
+                        header('Location: /home?error=upload_failed');
+                        exit();
+                    }
         $chat_id = (int)$_GET['chat_id'];
         // Verify user is in chat
         $chats = $queryBuilder->getChatsForUser($current_user_id);
@@ -346,6 +459,7 @@ public function sendMessage() {
             break;
         }
     }
+    
     
     if (!$has_access) {
         header('Location: /message?error=access_denied');
