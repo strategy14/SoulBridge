@@ -215,24 +215,39 @@ class PagesController {
         exit();
     }
 
-                $queryBuilder = new queryBuilder();
-                $queryBuilder->addStory($userId, $filePath);
-            }
-            header('Location: /home');
-            exit();
-        }
-        header('Location: /home');
-        exit();
-    }
     public function commentHandler() {
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SESSION['user_id'])) {
             $queryBuilder = new queryBuilder();
             $userId = $_SESSION['user_id'];
-            $postId = $_POST['post_id'];
-            $comment = $_POST['comment'];
+            $postId = (int)$_POST['post_id'];
+            $comment = trim($_POST['comment']);
+            
             if (isset($_POST['csrf_token']) && $_POST['csrf_token'] === $_SESSION['csrf_token']) {
-                $queryBuilder->addComment($userId, $postId, $comment);
-                header('Location: /comment?post_id=' . urlencode($postId));
+                if (!empty($comment)) {
+                    $result = $queryBuilder->addComment($userId, $postId, $comment);
+                    
+                    if ($result) {
+                        // Add notification for comment
+                        $postOwnerSql = "SELECT userId FROM posts WHERE id = :postId";
+                        $stmt = $queryBuilder->pdo->prepare($postOwnerSql);
+                        $stmt->execute(['postId' => $postId]);
+                        $postOwner = $stmt->fetch(PDO::FETCH_ASSOC);
+                        
+                        if ($postOwner && $postOwner['userId'] != $userId) {
+                            $queryBuilder->addNotification($userId, $postOwner['userId'], "commented on your post.", $postId);
+                        }
+                    }
+                }
+                
+                // Return JSON for AJAX requests
+                if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && 
+                    strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
+                    header('Content-Type: application/json');
+                    echo json_encode(['success' => true, 'message' => 'Comment added successfully']);
+                    exit;
+                }
+                
+                header('Location: /home');
                 exit();
             } else {
                 header('Location: /?message=Invalid CSRF token.');
@@ -242,6 +257,7 @@ class PagesController {
         header('Location: /home');
         exit();
     }
+
     public function likePost() {
         header('Content-Type: application/json');
         
@@ -291,330 +307,163 @@ class PagesController {
         exit;
     }
 
-    public function commentHandler() {
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SESSION['user_id'])) {
-            $queryBuilder = new queryBuilder();
-            $userId = $_SESSION['user_id'];
-            $postId = (int)$_POST['post_id'];
-            $comment = trim($_POST['comment']);
-            
-            if (isset($_POST['csrf_token']) && $_POST['csrf_token'] === $_SESSION['csrf_token']) {
-                if (!empty($comment)) {
-                    $result = $queryBuilder->addComment($userId, $postId, $comment);
-                    
-                    if ($result) {
-                        // Add notification for comment
-                        $postOwnerSql = "SELECT userId FROM posts WHERE id = :postId";
-                        $stmt = $queryBuilder->pdo->prepare($postOwnerSql);
-                        $stmt->execute(['postId' => $postId]);
-                        $postOwner = $stmt->fetch(PDO::FETCH_ASSOC);
-                        
-                        if ($postOwner && $postOwner['userId'] != $userId) {
-                            $queryBuilder->addNotification($userId, $postOwner['userId'], "commented on your post.", $postId);
-                        }
-                    }
-                }
-                
-                // Return JSON for AJAX requests
-                if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && 
-                    strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
-                    header('Content-Type: application/json');
-                    echo json_encode(['success' => true, 'message' => 'Comment added successfully']);
-                    exit;
-                }
-                
-                header('Location: /home');
-                exit();
-            } else {
-                header('Location: /?message=Invalid CSRF token.');
-                exit();
-            }
+    public function message() {
+        if (!isset($_SESSION['user_id'])) {
+            header('Location: /');
+            exit();
         }
-        header('Location: /home');
-        exit();
-    }
 
-public function message() {
-    if (!isset($_SESSION['user_id'])) {
-        header('Location: /');
-        exit();
-    }
+        $queryBuilder = new queryBuilder();
+        $current_user_id = $_SESSION['user_id'];
+        $noti_count = $queryBuilder->getUnreadNotificationsCount($current_user_id);
+        $unread_count = $queryBuilder->getUnreadMessagesCount($current_user_id);
 
-    $queryBuilder = new queryBuilder();
-    $current_user_id = $_SESSION['user_id'];
-    $noti_count = $queryBuilder->getUnreadNotificationsCount($current_user_id);
-    $unread_count = $queryBuilder->getUnreadMessagesCount($current_user_id);
-    $last_message = $queryBuilder->getLastMessageForUser($current_user_id);
+        $users_raw = $queryBuilder->getAllUsersWithAvatarExcept($current_user_id);
+        $users = [];
+        foreach ($users_raw as $user) {
+            $last_message = $queryBuilder->getLastMessageWithUser($current_user_id, $user['id']);
+            $unread_count = $queryBuilder->getUnreadCountWithUser($current_user_id, $user['id']);
+            $users[] = [
+                'id' => $user['id'],
+                'firstName' => $user['firstName'],
+                'lastName' => $user['lastName'],
+                'avatar' => $user['avatar'],
+                'last_message' => $last_message['last_message'] ?? '',
+                'last_message_time' => $last_message['last_message_time'] ?? '',
+                'unread_count' => $unread_count
+            ];
+        }
+        // Sort users by last_message_time DESC (most recent first)
+        usort($users, function($a, $b) {
+            return strtotime($b['last_message_time']) <=> strtotime($a['last_message_time']);
+        });
 
-    $users_raw = $queryBuilder->getAllUsersWithAvatarExcept($current_user_id);
-    $users = [];
-    foreach ($users_raw as $user) {
-        $last_message = $queryBuilder->getLastMessageWithUser($current_user_id, $user['id']);
-        $unread_count = $queryBuilder->getUnreadCountWithUser($current_user_id, $user['id']);
-        $users[] = [
-            'id' => $user['id'],
-            'firstName' => $user['firstName'],
-            'lastName' => $user['lastName'],
-            'avatar' => $user['avatar'],
-            'last_message' => $last_message['last_message'] ?? '',
-            'last_message_time' => $last_message['last_message_time'] ?? '',
-            'unread_count' => $unread_count
-        ];
-    }
-    // Sort users by last_message_time DESC (most recent first)
-    usort($users, function($a, $b) {
-        return strtotime($b['last_message_time']) <=> strtotime($a['last_message_time']);
-    });
+        $user = $queryBuilder->getUserData($current_user_id);
 
-    $user = $queryBuilder->getUserData($current_user_id);
-
-    // Start chat if requested
-    if (isset($_GET['start_chat'])) {
-        $other_user_id = (int)$_GET['user_id'];
-                // Handle file upload with validation
-        if (!$chat_id) {
-                $allowedImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-                $allowedVideoTypes = ['video/mp4', 'video/webm', 'video/ogg'];
-                $maxFileSize = 50 * 1024 * 1024; // 50MB
-                
+        // Start chat if requested
+        if (isset($_GET['start_chat'])) {
+            $other_user_id = (int)$_GET['user_id'];
             $chat_id = $queryBuilder->createNewChat($current_user_id, $other_user_id);
-                    $fileType = $_FILES['fileUpload']['type'];
-                    $fileSize = $_FILES['fileUpload']['size'];
-                    
-                    // Validate file type and size
-                    if (!in_array($fileType, array_merge($allowedImageTypes, $allowedVideoTypes))) {
-                        header('Location: /home?error=invalid_file_type');
-                        exit();
-                    }
-                    
-                    if ($fileSize > $maxFileSize) {
-                        header('Location: /home?error=file_too_large');
-                        exit();
-                    }
-                    
-                    // Determine upload directory based on file type
-                    if (in_array($fileType, $allowedVideoTypes)) {
-                        $uploadDir = 'uploads/videos/';
-                    } else {
-                        $uploadDir = 'uploads/images/';
-                    }
-                    
-        header("Location: /message?chat_id=$chat_id");
-        exit();
-    }
-                    
+            header("Location: /message?chat_id=$chat_id");
+            exit();
+        }
 
-                    $fileExtension = pathinfo($_FILES['fileUpload']['name'], PATHINFO_EXTENSION);
-                    $fileName = uniqid() . '_' . time() . '.' . $fileExtension;
-    $messages = [];
-                    
-                    if (!move_uploaded_file($fileTmp, $filePath)) {
-                        header('Location: /home?error=upload_failed');
-                        exit();
-                    }
-        $chat_id = (int)$_GET['chat_id'];
-        // Verify user is in chat
-        $chats = $queryBuilder->getChatsForUser($current_user_id);
+        $messages = [];
+        if (isset($_GET['chat_id'])) {
+            $chat_id = (int)$_GET['chat_id'];
+            // Verify user is in chat
+            $chats = $queryBuilder->getChatsForUser($current_user_id);
+            $has_access = false;
+            foreach ($chats as $chat) {
+                if ($chat['chat_id'] == $chat_id) {
+                    $has_access = true;
+                    break;
+                }
+            }
+            if (!$has_access) {
+                die("Unauthorized access to this chat");
+            }
+            $messages = $queryBuilder->getMessagesForChat($chat_id);
+            $chat_partner = $queryBuilder->getChatUser($chat_id, $current_user_id);
+            $queryBuilder->markMessagesAsRead($chat_id, $current_user_id);
+        }
+
+        require_once 'view/message.view.php';
+    }
+
+    public function sendMessage() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_SESSION['user_id'])) {
+            header('Location: /');
+            exit();
+        }
+        
+        $chat_id = (int)($_POST['chat_id'] ?? 0);
+        $message = trim($_POST['message'] ?? '');
+        $user_id = (int)$_SESSION['user_id'];
+        
+        if (empty($message) || $chat_id <= 0) {
+            header("Location: /message?chat_id=$chat_id&error=empty_message");
+            exit();
+        }
+        
+        $queryBuilder = new queryBuilder();
+        
+        // Verify user has access to this chat
+        $chats = $queryBuilder->getChatsForUser($user_id);
         $has_access = false;
+        
         foreach ($chats as $chat) {
             if ($chat['chat_id'] == $chat_id) {
                 $has_access = true;
                 break;
             }
         }
+        
         if (!$has_access) {
-            die("Unauthorized access to this chat");
+            header('Location: /message?error=access_denied');
+            exit();
         }
-        $messages = $queryBuilder->getMessagesForChat($chat_id);
-        $chat_partner = $queryBuilder->getChatUser($chat_id, $current_user_id);
-        $queryBuilder->markMessagesAsRead($chat_id, $current_user_id);
-    }
-
-    require_once 'view/message.view.php';
-}
-public function sendMessage() {
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_SESSION['user_id'])) {
-        header('Location: /');
-        exit();
-    }
-    
-    $chat_id = (int)($_POST['chat_id'] ?? 0);
-    $message = trim($_POST['message'] ?? '');
-    $user_id = (int)$_SESSION['user_id'];
-    
-    if (empty($message) || $chat_id <= 0) {
-        header("Location: /message?chat_id=$chat_id&error=empty_message");
-        exit();
-    }
-    
-    $queryBuilder = new queryBuilder();
-    
-    // Verify user has access to this chat
-    $chats = $queryBuilder->getChatsForUser($user_id);
-    $has_access = false;
-    
-    foreach ($chats as $chat) {
-        if ($chat['chat_id'] == $chat_id) {
-            $has_access = true;
-            break;
-        }
-    }
-    
-    
-    if (!$has_access) {
-        header('Location: /message?error=access_denied');
-        exit();
-    }
-    
-    // Send the message
-    $success = $queryBuilder->sendMessage($chat_id, $user_id, $message);
-    
-    if ($success) {
-        header("Location: /message?chat_id=$chat_id");
-    } else {
-        header("Location: /message?chat_id=$chat_id&error=send_failed");
-    }
-    exit();
-}
-
-public function friendRequest() {
-    session_start();
-    header('Content-Type: application/json');
-
-    try {
-        $data = json_decode(file_get_contents('php://input'), true);
-        $action = $data['action'] ?? '';
-        $user_id = intval($data['user_id'] ?? 0);
-        $allowed_actions = ['send', 'accept', 'decline', 'cancel', 'unfriend'];
-
-        if (!isset($_SERVER['HTTP_X_CSRF_TOKEN']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_SERVER['HTTP_X_CSRF_TOKEN'])) {
-            throw new Exception('Invalid CSRF token.');
-        }
-
-        if (!in_array($action, $allowed_actions) || $user_id <= 0 || $user_id === $_SESSION['user_id']) {
-            throw new Exception('Invalid request parameters.');
-        }
-
-        $current_user_id = $_SESSION['user_id'];
-        $queryBuilder = new queryBuilder();
-
-        switch ($action) {
-            case 'send':
-                $result = $queryBuilder->sendFriendRequest($current_user_id, $user_id);
-                break;
-            case 'accept':
-                $result = $queryBuilder->acceptFriendRequest($user_id, $current_user_id);
-                break;
-            case 'decline':
-                $result = $queryBuilder->declineFriendRequest($user_id, $current_user_id);
-                break;
-            case 'cancel':
-                $result = $queryBuilder->cancelFriendRequest($current_user_id, $user_id);
-                break;
-            case 'unfriend':
-                $result = $queryBuilder->unfriend($current_user_id, $user_id);
-                break;
-            default:
-                throw new Exception('Invalid action.');
-        }
-
-        if ($result['success']) {
-            echo json_encode(['success' => true, 'message' => $result['message']]);
+        
+        // Send the message
+        $success = $queryBuilder->sendMessage($chat_id, $user_id, $message);
+        
+        if ($success) {
+            header("Location: /message?chat_id=$chat_id");
         } else {
-            throw new Exception($result['message']);
+            header("Location: /message?chat_id=$chat_id&error=send_failed");
         }
-    } catch (Exception $e) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        exit();
     }
-}
 
+    public function friendRequest() {
+        header('Content-Type: application/json');
 
-// public function message() {
-//         if (!isset($_SESSION['user_id'])) {
-//             header("Location: /login");
-//             exit;
-//         }
+        try {
+            $data = json_decode(file_get_contents('php://input'), true);
+            $action = $data['action'] ?? '';
+            $user_id = intval($data['user_id'] ?? 0);
+            $allowed_actions = ['send', 'accept', 'decline', 'cancel', 'unfriend'];
 
-//         $current_user_id = $_SESSION['user_id'];
-//         $queryBuilder = new QueryBuilder();
+            if (!isset($_SERVER['HTTP_X_CSRF_TOKEN']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_SERVER['HTTP_X_CSRF_TOKEN'])) {
+                throw new Exception('Invalid CSRF token.');
+            }
 
-//         // Get current user data
-//         $user = $queryBuilder->getUserData($current_user_id);
+            if (!in_array($action, $allowed_actions) || $user_id <= 0 || $user_id === $_SESSION['user_id']) {
+                throw new Exception('Invalid request parameters.');
+            }
 
-//         // Get all other users
-//         $users = $queryBuilder->select('users', 'id, firstName, lastName', 'id != ?', [$current_user_id]);
+            $current_user_id = $_SESSION['user_id'];
+            $queryBuilder = new queryBuilder();
 
-//         // Handle starting a new chat
-//         if (isset($_GET['start_chat'])) {
-//             $other_user_id = intval($_GET['user_id']);
-//             $chat_id = $queryBuilder->findExistingChat($current_user_id, $other_user_id);
-            
-//             if (!$chat_id) {
-//                 $chat_id = $queryBuilder->createNewChat($current_user_id, $other_user_id);
-//             }
-            
-//             header("Location: /chat?chat_id=$chat_id");
-//             exit;
-//         }
+            switch ($action) {
+                case 'send':
+                    $result = $queryBuilder->sendFriendRequest($current_user_id, $user_id);
+                    break;
+                case 'accept':
+                    $result = $queryBuilder->acceptFriendRequest($user_id, $current_user_id);
+                    break;
+                case 'decline':
+                    $result = $queryBuilder->declineFriendRequest($user_id, $current_user_id);
+                    break;
+                case 'cancel':
+                    $result = $queryBuilder->cancelFriendRequest($current_user_id, $user_id);
+                    break;
+                case 'unfriend':
+                    $result = $queryBuilder->unfriend($current_user_id, $user_id);
+                    break;
+                default:
+                    throw new Exception('Invalid action.');
+            }
 
-//         // Get messages for current chat
-//         $messages = [];
-//         $chat_user = null;
-//         if (isset($_GET['chat_id'])) {
-//             $chat_id = intval($_GET['chat_id']);
-            
-//             // Verify user has access to this chat
-//             if (!$queryBuilder->verifyChatAccess($chat_id, $current_user_id)) {
-//                 die("Unauthorized access to this chat");
-//             }
-            
-//             $messages = $queryBuilder->getMessagesForChat($chat_id);
-//             $chat_user = $queryBuilder->getChatUser($chat_id, $current_user_id);
-            
-//             // Mark messages as read
-//             $queryBuilder->markMessagesAsRead($chat_id, $current_user_id);
-//         }
-
-//         // Get unread counts
-//         $noti_count = $queryBuilder->getUnreadNotificationsCount($current_user_id);
-//         $unread_count = $queryBuilder->getUnreadMessagesCount($current_user_id);
-
-//         require 'view/message.view.php';
-//     }
-
-//     public function sendMessage() {
-//         if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_SESSION['user_id'])) {
-//             header('Location: /chat');
-//             exit;
-//         }
-        
-//         $chat_id = intval($_POST['chat_id']);
-//         $message = trim($_POST['message']);
-//         $user_id = $_SESSION['user_id'];
-        
-//         if (empty($message) || $chat_id <= 0) {
-//             header("Location: /message?chatId=$chat_id&error=empty_message");
-//             exit;
-//         }
-        
-//         $queryBuilder = new QueryBuilder();
-        
-//         // Verify user has access to this chat
-//         if (!$queryBuilder->verifyChatAccess($chat_id, $user_id)) {
-//             header('Location: /chat?error=access_denied');
-//             exit;
-//         }
-        
-//         // Send the message
-//         $success = $queryBuilder->sendMessage($chat_id, $user_id, $message);
-        
-//         if ($success) {
-//             header("Location: /chat?chat_id=$chat_id");
-//         } else {
-//             header("Location: /chat?chat_id=$chat_id&error=send_failed");
-//         }
-//         exit;
-//     }
+            if ($result['success']) {
+                echo json_encode(['success' => true, 'message' => $result['message']]);
+            } else {
+                throw new Exception($result['message']);
+            }
+        } catch (Exception $e) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+    }
 }
 ?>

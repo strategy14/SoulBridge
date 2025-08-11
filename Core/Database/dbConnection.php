@@ -4,7 +4,7 @@
         public static function connect() {
                 try {
         $pdo = new PDO('mysql:host=localhost;
-        dbname=project_soul',
+        dbname=bolt',
          'root',
           '');
     } catch (PDOException $e) {

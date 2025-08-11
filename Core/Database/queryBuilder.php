@@ -1,7 +1,7 @@
 <?php
 
     class queryBuilder {
-        private $pdo;
+        public $pdo;
 
         public function __construct() {
             $this->pdo = dbConnection::connect();
@@ -369,12 +369,6 @@
             'message' => $message,
             'status' => $status
         ]);
-    }
-
-    public function addStory($userId, $media) {
-        $sql = "INSERT INTO stories (userId, media) VALUES (:userId, :media)";
-        $stmt = $this->pdo->prepare($sql);
-        return $stmt->execute(['userId' => $userId, 'media' => $media]);
     }
 
     public function getStories() {
