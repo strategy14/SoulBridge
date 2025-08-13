@@ -49,7 +49,40 @@ class PagesController {
         require 'view/profile.view.php';
     }
     public function comment() {
-        require_once 'view/comment.view.php';
+        if (!isset($_SESSION['user_id'])) {
+            header('Location: /');
+            exit();
+        }
+        
+        $queryBuilder = new queryBuilder();
+        $current_user_id = $_SESSION['user_id'];
+        $post_id = isset($_GET['post_id']) ? (int)$_GET['post_id'] : 0;
+        
+        if (!$post_id) {
+            header('Location: /home');
+            exit();
+        }
+        
+        // Get post details
+        $post = $queryBuilder->getPostById($post_id);
+        if (!$post) {
+            header('Location: /home');
+            exit();
+        }
+        
+        // Get comments for this post
+        $comments = $queryBuilder->getCommentsForPost($post_id);
+        
+        // Get counts
+        $like_count = $queryBuilder->getLikesCountForPost($post_id);
+        $comment_count = $queryBuilder->getCommentsCountForPost($post_id);
+        
+        // Get user data for navigation
+        $user = $queryBuilder->getUserData($current_user_id);
+        $noti_count = $queryBuilder->getUnreadNotificationsCount($current_user_id);
+        $unread_count = $queryBuilder->getUnreadMessagesCount($current_user_id);
+        
+        require_once 'view/comments.view.php';
     }
     public function search() {
         if (!isset($_SESSION['user_id'])) {

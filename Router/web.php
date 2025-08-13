@@ -9,7 +9,8 @@ return $routes = [
         '/search' => 'PagesController@search',
         '/like' => 'PagesController@likePost',
         '/notification' => 'PagesController@notification',
-        '/error' => 'PagesController@error'
+        '/error' => 'PagesController@error',
+        '/comments' => 'PagesController@comment'
         
     ],
     'POST' => [

@@ -1,244 +1,277 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
+    <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SoulBridge</title>
+    <title><?= htmlspecialchars($user['firstName'] . ' ' . $user['lastName']) ?> - SoulBridge</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/assets/css/navigation.css" />
     <link rel="stylesheet" href="/assets/css/profile.css" />
-    <script src="/assets/js/script.js" defer></script>
-    <script
-      src="https://kit.fontawesome.com/ce328ec234.js"
-      crossorigin="anonymous"
-    ></script>
+    <script src="/assets/js/profile.js" defer></script>
     <script>
         const CSRF_TOKEN = "<?= $_SESSION['csrf_token'] ?>";
+        const currentUserId = <?= $current_user_id ?>;
+        const profileUserId = <?= $profile_user_id ?>;
     </script>
 </head>
 <body>
     <?php
     $search_term = isset($_GET['search']) ? trim($_GET['search']) : '';
+    $login_user = $queryBuilder->getUserData($current_user_id);
+    $user = $login_user; // For navigation
     require_once 'view/nav.view.php';
-  ?>
-  
-            <!-- Middle Section -->
-            <div class="middle">
-                <!-- Profile Header -->
-              <div class="profile-section">
-                <div class="profile-header">
-                    <img src="<?= htmlspecialchars($user['cover_photo'] ?? 'images/SB.png') ?>" 
-                         class="cover-photo" 
-                         alt="Cover Photo"
-                         onerror="this.src='images/SB.png'">
-                    <div class="profile-photo profile-photo-lg">
+    $user = $queryBuilder->getUserData($profile_user_id); // Reset to profile user
+    ?>
+    
+    <div class="profile-main">
+        <!-- Profile Header -->
+        <div class="profile-header-section">
+            <div class="cover-photo-container">
+                <img src="<?= htmlspecialchars($user['coverPhoto'] ?? 'images/SB.png') ?>" 
+                     class="cover-photo" 
+                     alt="Cover Photo"
+                     onerror="this.src='images/SB.png'">
+                <div class="cover-overlay"></div>
+            </div>
+            
+            <div class="profile-info-container">
+                <div class="profile-avatar-section">
+                    <div class="profile-avatar-wrapper">
                         <img src="<?= htmlspecialchars($user['avatar'] ?? 'images/profile.jpg') ?>" 
                              alt="Profile Picture"
+                             class="profile-avatar-large"
                              onerror="this.src='images/profile.jpg'">
+                        <?php if ($profile_user_id == $current_user_id): ?>
+                            <button class="edit-avatar-btn">
+                                <i class="fas fa-camera"></i>
+                            </button>
+                        <?php endif; ?>
                     </div>
                 </div>
-
-                <!-- Profile Info -->
-                <div class="profile-info">
-                    <h2><?= htmlspecialchars($user['firstName'] . ' ' . $user['lastName']) ?></h2>
-
-                    <!-- Friend Button -->
-                    <div class="profile-actions">
-    <?php if ($profile_user_id != $current_user_id): ?>
-        <?php if ($friend_status === 'pending'): ?>
-            <?php if ($action_user_id == $current_user_id): ?>
-                <button class="btn btn-danger cancel-request" 
-                        data-user-id="<?= $profile_user_id ?>">
-                    Cancel Request
-                </button>
-            <?php else: ?>
-                <div class="btn-group">
-                    <button class="btn btn-success accept-request" 
-                            data-user-id="<?= $profile_user_id ?>">
-                        Accept
-                    </button>
-                    <button class="btn btn-danger decline-request" 
-                            data-user-id="<?= $profile_user_id ?>">
-                        Decline
-                    </button>
-                </div>
-            <?php endif; ?>
-        <?php elseif ($friend_status === 'accepted'): ?>
-            <button class="btn btn-danger unfriend-btn" 
-                    data-user-id="<?= $profile_user_id ?>">
-                Unfriend
-            </button>
-        <?php else: ?>
-            <button class="btn btn-primary send-request" 
-                    data-user-id="<?= $profile_user_id ?>">
-                Add Friend
-            </button>
-        <?php endif; ?>
-    <?php endif; ?>
-</div>
+                
+                <div class="profile-details">
+                    <h1 class="profile-name"><?= htmlspecialchars($user['firstName'] . ' ' . $user['lastName']) ?></h1>
+                    <p class="profile-username">@<?= htmlspecialchars(strtolower(str_replace(' ', '', $user['firstName'] . $user['lastName']))) ?></p>
+                    
+                    <!-- Profile Stats -->
                     <div class="profile-stats">
-                        <a href="friends_list.php?id=<?= $profile_user_id ?>"><div class="stat-item">
-                            <div class="stat-number"><?= $friends_count ?></div>
-                            <div class="stat-label">Friends</div>
-                        </div></a>
-
                         <div class="stat-item">
-                            <div class="stat-number"><?= $post_count ?></div>
-                            <div class="stat-label">Posts</div>
+                            <span class="stat-number"><?= $friends_count ?></span>
+                            <span class="stat-label">Friends</span>
                         </div>
                         <div class="stat-item">
-                  <div class="stat-number"><?= $like_count; ?></div>
-                  <div class="stat-label">Likes</div>
-                </div>
+                            <span class="stat-number"><?= $post_count ?></span>
+                            <span class="stat-label">Posts</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number"><?= $like_count ?? 0 ?></span>
+                            <span class="stat-label">Likes</span>
+                        </div>
                     </div>
-
-                    <div class="profile-bio">
-                <p><i class="fa-solid fa-user"></i> <?php echo htmlspecialchars($user['bio']) ?></p>
-                <p><i class="fa-solid fa-map-marker-alt"></i> <?php echo htmlspecialchars($user['location']) ?></p>
-              </div>
-              </div>
-              </div>
-
-                <div class="feeds">
-                <?php if (empty($posts)): ?>
-              <div class="empty-state" style="text-align: center; color: #888; padding: 20px;">
-              <i class="fas fa-newspaper" style="font-size: 48px; margin-bottom: 10px;"></i>
-              <p>No posts to show yet.</p>
-              </div>
-              <?php endif; ?>
-              <?php foreach($posts as $post): ?>
-              <div class="feed" data-post-id="<?= $post['post_id'] ?>">
-                <div class="head">
-                  <div class="user">
-                    <div class="profile-photo">
-                      <img src="<?= htmlspecialchars($post['profile_pic'] ?? 'images/profile.jpg') ?>" alt="Profile Picture">
+                    
+                    <!-- Profile Bio -->
+                    <?php if (!empty($user['bio']) || !empty($user['location'])): ?>
+                        <div class="profile-bio">
+                            <?php if (!empty($user['bio'])): ?>
+                                <p><i class="fas fa-quote-left"></i> <?= htmlspecialchars($user['bio']) ?></p>
+                            <?php endif; ?>
+                            <?php if (!empty($user['location'])): ?>
+                                <p><i class="fas fa-map-marker-alt"></i> <?= htmlspecialchars($user['location']) ?></p>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+                    
+                    <!-- Action Buttons -->
+                    <div class="profile-actions">
+                        <?php if ($profile_user_id != $current_user_id): ?>
+                            <?php if ($friend_status === 'pending'): ?>
+                                <?php if ($action_user_id == $current_user_id): ?>
+                                    <button class="action-btn cancel-request-btn" data-user-id="<?= $profile_user_id ?>">
+                                        <i class="fas fa-times"></i>
+                                        Cancel Request
+                                    </button>
+                                <?php else: ?>
+                                    <div class="button-group">
+                                        <button class="action-btn accept-request-btn" data-user-id="<?= $profile_user_id ?>">
+                                            <i class="fas fa-check"></i>
+                                            Accept
+                                        </button>
+                                        <button class="action-btn decline-request-btn" data-user-id="<?= $profile_user_id ?>">
+                                            <i class="fas fa-times"></i>
+                                            Decline
+                                        </button>
+                                    </div>
+                                <?php endif; ?>
+                            <?php elseif ($friend_status === 'accepted'): ?>
+                                <button class="action-btn message-btn" onclick="startChat(<?= $profile_user_id ?>)">
+                                    <i class="fas fa-envelope"></i>
+                                    Message
+                                </button>
+                                <button class="action-btn unfriend-btn" data-user-id="<?= $profile_user_id ?>">
+                                    <i class="fas fa-user-minus"></i>
+                                    Unfriend
+                                </button>
+                            <?php else: ?>
+                                <button class="action-btn add-friend-btn" data-user-id="<?= $profile_user_id ?>">
+                                    <i class="fas fa-user-plus"></i>
+                                    Add Friend
+                                </button>
+                                <button class="action-btn message-btn" onclick="startChat(<?= $profile_user_id ?>)">
+                                    <i class="fas fa-envelope"></i>
+                                    Message
+                                </button>
+                            <?php endif; ?>
+                        <?php else: ?>
+                            <button class="action-btn edit-profile-btn">
+                                <i class="fas fa-edit"></i>
+                                Edit Profile
+                            </button>
+                        <?php endif; ?>
                     </div>
-                    <div class="info">
-                      <h3><?= htmlspecialchars($post['username']) ?></h3>
-                      <small><?= date('M j, Y g:i a', strtotime($post['created_at'])) ?></small>
-                    </div>
-                  </div>
-                  <span class="edit">
-                    <i class="fa-solid <?= $post['post_public'] ? 'fa-globe' : 'fa-user-friends' ?>"></i> 
-                    <?= $post['post_public'] ? 'Public' : 'Friends' ?>
-                  </span>
                 </div>
-                <?php if (!empty($post['post_photo'])): ?>
-                <div class="photo" onclick="window.location.href='comments.php?post_id=<?= $post['post_id'] ?>'" >
-                  <img src="<?= htmlspecialchars($post['post_photo']) ?>" alt="Post Image">
-                </div>
-                <?php endif; ?>
-                <?php if (!empty($post['content'])): ?>
-                <div class="caption">
-                  <p><?= nl2br(htmlspecialchars($post['content'])) ?></p>
-                </div>
-                <?php endif; ?>
-                <div class="action-button">
-                  <div class="interaction-buttons">
-                    <!-- Like Button -->
-                    <span class="like-btn">
-                    <a href="like_handler.php?post_id=<?= $post['post_id']; ?>" class="btn btn-sm btn-outline-primary like-link">
-                      <i class="<?= $liked ? 'fa-solid' : 'fa-regular' ?> fa-heart" style="<?= $liked ? 'color: red;' : '' ?>">
-
-                      </i><span class="like-count"><i style="font-size: large;"><?= $like_count = $queryBuilder->getLikesCountForPost($post['post_id']); ?></i></span>
-                      </a>
-                    </span>
-
-                    <a href="comments.php?post_id=<?php echo $post['post_id']; ?>"><span class="comment-btn">
-                        <?php
-                         $comment_count = $queryBuilder->getCommentsCountForPost($post['post_id']);
-                         ?>
-                        <i class="fa-regular fa-comment">
-                        <span class="comment-count"><?= $comment_count; ?></span>
-                        </i>
-                      </span>
-                      </a>
-                  </div>
-                  <div class="bookmark">
-                    <span><i class=""></i></span>
-                  </div>
-                </div>
-
-                <div class="comments-section">
-                  <div class="comments-list">
-                  </div>
-                  <form class="comment-form" action="comment_handler.php" method="POST">
-                      <input type="hidden" name="post_id" value="<?= $post['post_id']; ?>">
-                      <input type="hidden" name="user_id" value="<?= $_SESSION['user_id']; ?>">
-                      <div class="input-group">
-                      <input type="text" class="input" id="Email" name="comment" placeholder="Write a comment..." autocomplete="off" required>
-                     <input class="button--submit" value="Comment" type="submit">
-                      </div>
-                    </form>
-                </div>
-              </div>
-              <?php endforeach; ?>
-          </div>
-            <div class="right">
             </div>
         </div>
-    </main>
-    <script>
-const handleRequest = async (action, userId) => {
-    try {
-        const response = await fetch('friendRequest', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-Token': CSRF_TOKEN
-            },
-            body: JSON.stringify({
-                action: action,
-                user_id: userId
-            })
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-            alert(result.message || 'Action successful');
-            location.reload();
-        } else {
-            alert(result.error || 'Action failed');
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        alert('An error occurred. Please check the console for details.');
-    }
-};
-
-document.querySelectorAll('.send-request').forEach(button => {
-    button.addEventListener('click', () => {
-        const userId = button.getAttribute('data-user-id');
-        handleRequest('send', userId);
-    });
-});
-
-document.querySelectorAll('.accept-request').forEach(button => {
-    button.addEventListener('click', () => {
-        const userId = button.getAttribute('data-user-id');
-        handleRequest('accept', userId);
-    });
-});
-
-document.querySelectorAll('.decline-request').forEach(button => {
-    button.addEventListener('click', () => {
-        const userId = button.getAttribute('data-user-id');
-        handleRequest('decline', userId);
-    });
-});
-document.querySelectorAll('.cancel-request').forEach(button => {
-    button.addEventListener('click', () => {
-        const userId = button.getAttribute('data-user-id');
-        handleRequest('cancel', userId);
-    });
-});
-
-document.querySelectorAll('.unfriend-btn').forEach(button => {
-    button.addEventListener('click', () => {
-        const userId = button.getAttribute('data-user-id');
-        handleRequest('unfriend', userId);
-    });
-});
-    </script>
+        
+        <!-- Profile Content -->
+        <div class="profile-content">
+            <div class="content-wrapper">
+                <!-- Posts Section -->
+                <div class="posts-section">
+                    <div class="section-header">
+                        <h2>Posts</h2>
+                        <div class="post-filters">
+                            <button class="filter-btn active" data-filter="all">All</button>
+                            <button class="filter-btn" data-filter="photos">Photos</button>
+                            <button class="filter-btn" data-filter="videos">Videos</button>
+                        </div>
+                    </div>
+                    
+                    <div class="posts-grid">
+                        <?php if (empty($posts)): ?>
+                            <div class="empty-posts">
+                                <div class="empty-icon">
+                                    <i class="fas fa-images"></i>
+                                </div>
+                                <h3>No posts yet</h3>
+                                <p>
+                                    <?php if ($profile_user_id == $current_user_id): ?>
+                                        Share your first post to get started!
+                                    <?php else: ?>
+                                        <?= htmlspecialchars($user['firstName']) ?> hasn't shared any posts yet.
+                                    <?php endif; ?>
+                                </p>
+                            </div>
+                        <?php else: ?>
+                            <?php foreach($posts as $post): ?>
+                                <article class="post-card" data-post-id="<?= $post['post_id'] ?>">
+                                    <div class="post-header">
+                                        <div class="post-author">
+                                            <img src="<?= htmlspecialchars($post['profile_pic'] ?? 'images/profile.jpg') ?>" 
+                                                 alt="<?= htmlspecialchars($post['username']) ?>" 
+                                                 class="author-avatar">
+                                            <div class="author-info">
+                                                <h4><?= htmlspecialchars($post['username']) ?></h4>
+                                                <time><?= date('M j, Y g:i a', strtotime($post['created_at'])) ?></time>
+                                            </div>
+                                        </div>
+                                        <div class="post-privacy">
+                                            <i class="fas <?= $post['post_public'] ? 'fa-globe' : 'fa-user-friends' ?>"></i>
+                                            <span><?= $post['post_public'] ? 'Public' : 'Friends' ?></span>
+                                        </div>
+                                    </div>
+                                    
+                                    <?php if (!empty($post['content'])): ?>
+                                        <div class="post-content">
+                                            <p><?= nl2br(htmlspecialchars($post['content'])) ?></p>
+                                        </div>
+                                    <?php endif; ?>
+                                    
+                                    <?php if (!empty($post['post_photo'])): ?>
+                                        <div class="post-media">
+                                            <?php if (preg_match('/\.(mp4|webm|ogg)$/i', $post['post_photo'])): ?>
+                                                <video controls class="post-video">
+                                                    <source src="<?= htmlspecialchars($post['post_photo']) ?>">
+                                                    Your browser does not support the video tag.
+                                                </video>
+                                            <?php else: ?>
+                                                <img src="<?= htmlspecialchars($post['post_photo']) ?>" 
+                                                     alt="Post Image" 
+                                                     class="post-image"
+                                                     onclick="openImageModal('<?= htmlspecialchars($post['post_photo']) ?>')">
+                                            <?php endif; ?>
+                                        </div>
+                                    <?php endif; ?>
+                                    
+                                    <div class="post-actions">
+                                        <div class="action-buttons">
+                                            <button class="action-btn like-btn" data-post-id="<?= $post['post_id'] ?>">
+                                                <?php
+                                                $like_count = $queryBuilder->getLikesCountForPost($post['post_id']);
+                                                $liked = $queryBuilder->hasUserLikedPost($current_user_id, $post['post_id']);
+                                                ?>
+                                                <i class="<?= $liked ? 'fas' : 'far' ?> fa-heart <?= $liked ? 'liked' : '' ?>"></i>
+                                                <span class="like-count"><?= $like_count ?></span>
+                                            </button>
+                                            
+                                            <button class="action-btn comment-btn" onclick="openComments(<?= $post['post_id'] ?>)">
+                                                <?php $comment_count = $queryBuilder->getCommentsCountForPost($post['post_id']); ?>
+                                                <i class="far fa-comment"></i>
+                                                <span class="comment-count"><?= $comment_count ?></span>
+                                            </button>
+                                            
+                                            <button class="action-btn share-btn">
+                                                <i class="far fa-share"></i>
+                                            </button>
+                                        </div>
+                                        
+                                        <button class="action-btn bookmark-btn">
+                                            <i class="far fa-bookmark"></i>
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Quick Comment Form -->
+                                    <div class="quick-comment">
+                                        <form class="comment-form" data-post-id="<?= $post['post_id'] ?>">
+                                            <input type="hidden" name="post_id" value="<?= $post['post_id'] ?>">
+                                            <input type="hidden" name="user_id" value="<?= $current_user_id ?>">
+                                            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                                            <div class="comment-input-wrapper">
+                                                <img src="<?= htmlspecialchars($login_user['avatar'] ?? 'images/profile.jpg') ?>" 
+                                                     alt="Your avatar" 
+                                                     class="comment-avatar">
+                                                <input type="text" 
+                                                       name="comment" 
+                                                       placeholder="Write a comment..." 
+                                                       class="comment-input"
+                                                       required>
+                                                <button type="submit" class="comment-submit-btn">
+                                                    <i class="fas fa-paper-plane"></i>
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </article>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Image Modal -->
+    <div class="image-modal" id="imageModal">
+        <div class="modal-backdrop" onclick="closeImageModal()"></div>
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeImageModal()">
+                <i class="fas fa-times"></i>
+            </button>
+            <img src="" alt="Full size image" id="modalImage">
+        </div>
+    </div>
+    
+    <!-- Toast for notifications -->
+    <div id="toast" class="toast"></div>
 </body>
 </html>
