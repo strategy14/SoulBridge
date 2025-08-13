@@ -308,69 +308,73 @@ class PagesController {
     }
 
     public function message() {
-        if (!isset($_SESSION['user_id'])) {
-            header('Location: /');
-            exit();
-        }
-
-        $queryBuilder = new queryBuilder();
-        $current_user_id = $_SESSION['user_id'];
-        $noti_count = $queryBuilder->getUnreadNotificationsCount($current_user_id);
-        $unread_count = $queryBuilder->getUnreadMessagesCount($current_user_id);
-
-        $users_raw = $queryBuilder->getAllUsersWithAvatarExcept($current_user_id);
-        $users = [];
-        foreach ($users_raw as $user) {
-            $last_message = $queryBuilder->getLastMessageWithUser($current_user_id, $user['id']);
-            $unread_count = $queryBuilder->getUnreadCountWithUser($current_user_id, $user['id']);
-            $users[] = [
-                'id' => $user['id'],
-                'firstName' => $user['firstName'],
-                'lastName' => $user['lastName'],
-                'avatar' => $user['avatar'],
-                'last_message' => $last_message['last_message'] ?? '',
-                'last_message_time' => $last_message['last_message_time'] ?? '',
-                'unread_count' => $unread_count
-            ];
-        }
-        // Sort users by last_message_time DESC (most recent first)
-        usort($users, function($a, $b) {
-            return strtotime($b['last_message_time']) <=> strtotime($a['last_message_time']);
-        });
-
-        $user = $queryBuilder->getUserData($current_user_id);
-
-        // Start chat if requested
-        if (isset($_GET['start_chat'])) {
-            $other_user_id = (int)$_GET['user_id'];
-            $chat_id = $queryBuilder->createNewChat($current_user_id, $other_user_id);
-            header("Location: /message?chat_id=$chat_id");
-            exit();
-        }
-
-        $messages = [];
-        if (isset($_GET['chat_id'])) {
-            $chat_id = (int)$_GET['chat_id'];
-            // Verify user is in chat
-            $chats = $queryBuilder->getChatsForUser($current_user_id);
-            $has_access = false;
-            foreach ($chats as $chat) {
-                if ($chat['chat_id'] == $chat_id) {
-                    $has_access = true;
-                    break;
-                }
-            }
-            if (!$has_access) {
-                die("Unauthorized access to this chat");
-            }
-            $messages = $queryBuilder->getMessagesForChat($chat_id);
-            $chat_partner = $queryBuilder->getChatUser($chat_id, $current_user_id);
-            $queryBuilder->markMessagesAsRead($chat_id, $current_user_id);
-        }
-
-        require_once 'view/message.view.php';
+    if (!isset($_SESSION['user_id'])) {
+        header('Location: /');
+        exit();
     }
 
+    $queryBuilder = new queryBuilder();
+    $current_user_id = $_SESSION['user_id'];
+    $noti_count = $queryBuilder->getUnreadNotificationsCount($current_user_id);
+    $unread_count = $queryBuilder->getUnreadMessagesCount($current_user_id);
+    $last_message = $queryBuilder->getLastMessageForUser($current_user_id);
+
+    $users_raw = $queryBuilder->getAllUsersWithAvatarExcept($current_user_id);
+    $users = [];
+    foreach ($users_raw as $user) {
+        $last_message = $queryBuilder->getLastMessageWithUser($current_user_id, $user['id']);
+        $unread_count = $queryBuilder->getUnreadCountWithUser($current_user_id, $user['id']);
+        $users[] = [
+            'id' => $user['id'],
+            'firstName' => $user['firstName'],
+            'lastName' => $user['lastName'],
+            'avatar' => $user['avatar'],
+            'last_message' => $last_message['last_message'] ?? '',
+            'last_message_time' => $last_message['last_message_time'] ?? '',
+            'unread_count' => $unread_count
+        ];
+    }
+    // Sort users by last_message_time DESC (most recent first)
+    usort($users, function($a, $b) {
+        return strtotime($b['last_message_time']) <=> strtotime($a['last_message_time']);
+    });
+
+    $user = $queryBuilder->getUserData($current_user_id);
+
+    // Start chat if requested
+    if (isset($_GET['start_chat'])) {
+        $other_user_id = (int)$_GET['user_id'];
+        $chat_id = $queryBuilder->findExistingChat($current_user_id, $other_user_id);
+        if (!$chat_id) {
+            $chat_id = $queryBuilder->createNewChat($current_user_id, $other_user_id);
+        }
+        header("Location: /message?chat_id=$chat_id");
+        exit();
+    }
+
+    // Get messages for chat if chat_id is set (use GET, not POST)
+    $messages = [];
+    if (isset($_GET['chat_id'])) {
+        $chat_id = (int)$_GET['chat_id'];
+        // Verify user is in chat
+        $chats = $queryBuilder->getChatsForUser($current_user_id);
+        $has_access = false;
+        foreach ($chats as $chat) {
+            if ($chat['chat_id'] == $chat_id) {
+                $has_access = true;
+                break;
+            }
+        }
+        if (!$has_access) {
+            die("Unauthorized access to this chat");
+        }
+        $messages = $queryBuilder->getMessagesForChat($chat_id);
+        $chat_partner = $queryBuilder->getChatUser($chat_id, $current_user_id);
+        $queryBuilder->markMessagesAsRead($chat_id, $current_user_id);
+    }
+
+    require_once 'view/message.view.php';
+}
     public function sendMessage() {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_SESSION['user_id'])) {
             header('Location: /');
