@@ -10,9 +10,12 @@ $search_term = isset($_GET['search']) ? trim($_GET['search']) : '';
     <title>SoulBridge</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <script src="https://kit.fontawesome.com/ce328ec234.js" crossorigin="anonymous"></script>
-        <link rel="stylesheet" href="/assets/css/style.css" />
+    <link rel="stylesheet" href="/assets/css/navigation.css" />
+    <link rel="stylesheet" href="/assets/css/style.css" />
+    <link rel="stylesheet" href="/assets/css/stories.css" />
     <link rel="stylesheet" href="/assets/css/responsive.css" />
     <script src="/assets/js/home.js" defer></script>
+    <script src="/assets/js/stories.js" defer></script>
     <style>
         .right .request .action button {
             padding: 0.5rem 1rem;

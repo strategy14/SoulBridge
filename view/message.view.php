@@ -1,124 +1,201 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SoulBridge</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-    <link rel="stylesheet" href="styles.css" />
-    <script src="script.js" defer></script>
-    <script src="https://kit.fontawesome.com/ce328ec234.js" crossorigin="anonymous"></script>
-    <link rel="stylesheet" href="/assets/css/message.css" />"
+    <title>Messages - SoulBridge</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/assets/css/navigation.css" />
+    <link rel="stylesheet" href="/assets/css/messages.css" />
+    <script src="/assets/js/messages.js" defer></script>
 </head>
 <body>
-<?php
+    <?php
     $search_term = isset($_GET['search']) ? trim($_GET['search']) : '';
     require 'view/nav.view.php';
-?>
-<div class="chat-container <?php echo isset($_GET['chat_id']) ? 'chat-active' : ''; ?>">
-    <div class="user-list">
-        
-        <h3>Users</h3>
-        <?php foreach ($users as $user): ?>
-            <div class="user-item" onclick="window.location='message?start_chat=1&user_id=<?= $user['id'] ?>'">
-                <img src="<?= htmlspecialchars($user['avatar'] ?? 'images/profile.jpg') ?>" class="avatar" alt="avatar" style="margin-right: 0.5rem;">
-                <strong><?= htmlspecialchars(($user['firstName'] ?? '') . ' ' . ($user['lastName'] ?? '')) ?></strong>
-                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-                    <?php if (!empty($user['last_message'])): ?>
-                        <p style="flex-grow: 1;"><?= htmlspecialchars($user['last_message']) ?></p>
-                        <small style="margin-left: 0.5rem;">
-                            <i><?= !empty($user['last_message_time']) ? date('H:i', strtotime($user['last_message_time'])) : '' ?> </i>
-                            <i class="fa fa-clock"></i>
-                        </small>
-                        <?php if (!empty($user['unread_count']) && $user['unread_count'] > 0): ?>
-                            <span class="notification-count" style="background: var(--color-danger); color: white; font-size: 10px; border-radius: 0.8rem; padding: 0.26rem 0.38rem; margin-left: 0.5rem;">
-                                <?= $user['unread_count'] ?>
-                            </span>
-                        <?php endif; ?>
-                    <?php endif; ?>
+    ?>
+    
+    <div class="messages-main">
+        <div class="messages-container">
+            <!-- Chat List Sidebar -->
+            <div class="chat-sidebar <?php echo isset($_GET['chat_id']) ? 'hidden-mobile' : ''; ?>">
+                <div class="chat-header">
+                    <h2>Messages</h2>
+                    <button class="new-chat-btn" id="newChatBtn">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                </div>
+                
+                <div class="chat-search">
+                    <div class="search-wrapper">
+                        <i class="fas fa-search"></i>
+                        <input type="text" placeholder="Search conversations..." id="chatSearch">
+                    </div>
+                </div>
+                
+                <div class="chat-list" id="chatList">
+                    <?php foreach ($users as $user): ?>
+                        <div class="chat-item <?php echo isset($_GET['chat_id']) && isset($chat_partner) && $chat_partner['id'] == $user['id'] ? 'active' : ''; ?>" 
+                             onclick="window.location='message?start_chat=1&user_id=<?= $user['id'] ?>'">
+                            <div class="chat-avatar">
+                                <img src="<?= htmlspecialchars($user['avatar'] ?? 'images/profile.jpg') ?>" 
+                                     alt="<?= htmlspecialchars($user['firstName'] . ' ' . $user['lastName']) ?>">
+                                <div class="online-indicator"></div>
+                            </div>
+                            <div class="chat-info">
+                                <div class="chat-name">
+                                    <?= htmlspecialchars($user['firstName'] . ' ' . $user['lastName']) ?>
+                                </div>
+                                <div class="chat-preview">
+                                    <?php if (!empty($user['last_message'])): ?>
+                                        <span class="last-message"><?= htmlspecialchars(substr($user['last_message'], 0, 50)) ?><?= strlen($user['last_message']) > 50 ? '...' : '' ?></span>
+                                    <?php else: ?>
+                                        <span class="no-messages">Start a conversation</span>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                            <div class="chat-meta">
+                                <?php if (!empty($user['last_message_time'])): ?>
+                                    <div class="chat-time">
+                                        <?= date('H:i', strtotime($user['last_message_time'])) ?>
+                                    </div>
+                                <?php endif; ?>
+                                <?php if (!empty($user['unread_count']) && $user['unread_count'] > 0): ?>
+                                    <div class="unread-badge">
+                                        <?= $user['unread_count'] ?>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
                 </div>
             </div>
-        <?php endforeach; ?>
-    </div>
-    <?php if (isset($_GET['chat_id'])): ?>
-      
-      <div class="chat-area" id="message-container">
-<div class="message-header" style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; background: var(--color-primary); border-radius: var(--card-border-radius); margin-bottom: 1rem; position: sticky; top: 0; z-index: 1; width: 100%;">
-    <div class="profile-photo" style="flex-shrink: 0;">
-        <img src="<?= htmlspecialchars($chat_partner['avatar'] ?? 'images/profile.jpg') ?>" alt="Profile Picture" style="width: 40px; height: 40px; border-radius: 50%;">
-    </div>
-    <h3 style="flex-grow: 1; margin-left: 1rem; color: white;"><?= htmlspecialchars($chat_partner['firstName'] . ' ' . $chat_partner['lastName']) ?></h3>
-    <span style="cursor: pointer; color: white;" onclick="window.location='message'"><i class="fa fa-arrow-left" style="font-size: large;"></i></span>
-</div>
-<div class="messages" style="overflow-y: auto; flex: 1;">
-            <?php foreach ($messages as $message): ?>
-            <div class="message <?= $message['senderId'] == $current_user_id ? 'self' : 'other' ?>">
-              <div style="display: flex; align-items: center;">
-              <img src="<?= $message['avatar'] ?? 'images/profile.jpg' ?>" class="avatar" alt="avatar" style="margin-right: 0.5rem;">
-              <strong><?= $message['senderId'] == $current_user_id ? 'You' : htmlspecialchars($message['firstName']) ?></strong>
-              </div>
-              <p><?= htmlspecialchars($message['content']) ?>
-                <small><i><?= date('H:i', strtotime($message['created_at'])) ?> </i><i class="fa fa-clock"></i></small></p>
+            
+            <!-- Chat Area -->
+            <div class="chat-area <?php echo !isset($_GET['chat_id']) ? 'hidden-mobile' : ''; ?>">
+                <?php if (isset($_GET['chat_id'])): ?>
+                    <!-- Chat Header -->
+                    <div class="chat-area-header">
+                        <button class="back-btn" onclick="window.location='message'">
+                            <i class="fas fa-arrow-left"></i>
+                        </button>
+                        <div class="chat-partner-info">
+                            <img src="<?= htmlspecialchars($chat_partner['avatar'] ?? 'images/profile.jpg') ?>" 
+                                 alt="<?= htmlspecialchars($chat_partner['firstName'] . ' ' . $chat_partner['lastName']) ?>" 
+                                 class="partner-avatar">
+                            <div class="partner-details">
+                                <h3><?= htmlspecialchars($chat_partner['firstName'] . ' ' . $chat_partner['lastName']) ?></h3>
+                                <span class="partner-status">Active now</span>
+                            </div>
+                        </div>
+                        <div class="chat-actions">
+                            <button class="action-btn">
+                                <i class="fas fa-phone"></i>
+                            </button>
+                            <button class="action-btn">
+                                <i class="fas fa-video"></i>
+                            </button>
+                            <button class="action-btn">
+                                <i class="fas fa-info-circle"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Messages -->
+                    <div class="messages-area" id="messagesArea">
+                        <?php foreach ($messages as $message): ?>
+                            <div class="message <?= $message['senderId'] == $current_user_id ? 'sent' : 'received' ?>">
+                                <?php if ($message['senderId'] != $current_user_id): ?>
+                                    <img src="<?= htmlspecialchars($message['avatar'] ?? 'images/profile.jpg') ?>" 
+                                         alt="<?= htmlspecialchars($message['firstName']) ?>" 
+                                         class="message-avatar">
+                                <?php endif; ?>
+                                <div class="message-content">
+                                    <div class="message-bubble">
+                                        <?= htmlspecialchars($message['content']) ?>
+                                    </div>
+                                    <div class="message-time">
+                                        <?= date('H:i', strtotime($message['created_at'])) ?>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                    
+                    <!-- Message Input -->
+                    <div class="message-input-area">
+                        <form id="messageForm" method="POST" action="/sendMessage">
+                            <input type="hidden" name="chat_id" value="<?= $_GET['chat_id'] ?>">
+                            <div class="input-wrapper">
+                                <button type="button" class="attachment-btn">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                                <input type="text" 
+                                       name="message" 
+                                       placeholder="Type a message..." 
+                                       class="message-input" 
+                                       id="messageInput"
+                                       autocomplete="off"
+                                       required>
+                                <button type="button" class="emoji-btn">
+                                    <i class="fas fa-smile"></i>
+                                </button>
+                                <button type="submit" class="send-btn">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                <?php else: ?>
+                    <!-- Welcome Screen -->
+                    <div class="welcome-screen">
+                        <div class="welcome-content">
+                            <div class="welcome-icon">
+                                <i class="fas fa-comments"></i>
+                            </div>
+                            <h2>Your Messages</h2>
+                            <p>Send private messages to friends and family</p>
+                            <button class="start-chat-btn" id="startChatBtn">
+                                <i class="fas fa-edit"></i>
+                                Start New Conversation
+                            </button>
+                        </div>
+                    </div>
+                <?php endif; ?>
             </div>
-            <?php endforeach; ?>
-          </div>
-          <div class="message-input">
-          <form id="message-form" method="POST" action="/sendMessage">
-            <?= $_GET['chat_id'] ?>
-            <input type="hidden" name="chat_id" value="<?= $_GET['chat_id'] ?>">
-             <input type="text" name="message" placeholder="Type your message..." style="width: 80%" autofocus>
-             <button type="submit">Send</button>
-         </form>
-          </div>
         </div>
-        <style>
-          .messages {
-          overflow-y: scroll;
-          }
-        </style>
-        <script>
-          const messageContainer = document.querySelector('.messages');
-          messageContainer.scrollTop = messageContainer.scrollHeight;
-
-          document.getElementById('message-form').addEventListener('submit', function(e) {e.preventDefault();
-          
-          const form = document.getElementById('message-form');
-          const formData = new FormData(form);
-
-
-          fetch('/sendMessage', {
-              method: 'POST',
-              body: formData
-          })
-          .then(response => {
-              if (response.ok) {
-                  this.reset();
-                  window.location.reload();
-              } else {
-                  console.error('Failed to send message');
-              }
-          })
-          .catch(error => {
-              console.error('Error:', error);
-          });
-
-          });
-          setInterval(() => {
-          fetch('message?chat_id=<?= $_GET['chat_id'] ?>')
-            .then(response => response.text())
-            .then(html => {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            const newMessages = doc.querySelector('.messages').innerHTML;
-            messageContainer.innerHTML = newMessages;
-            messageContainer.scrollTop = messageContainer.scrollHeight;
-            });
-          }, 5000);
-        </script>
-        <?php endif; ?>
-      </div>
     </div>
-  </main>
-  </body>
-  </html>
+    
+    <!-- New Chat Modal -->
+    <div class="modal" id="newChatModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Start New Conversation</h3>
+                <button class="modal-close" id="closeModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="search-users">
+                    <input type="text" placeholder="Search people..." id="userSearch">
+                </div>
+                <div class="users-list" id="usersList">
+                    <?php foreach ($users as $user): ?>
+                        <div class="user-item" onclick="startChat(<?= $user['id'] ?>)">
+                            <img src="<?= htmlspecialchars($user['avatar'] ?? 'images/profile.jpg') ?>" 
+                                 alt="<?= htmlspecialchars($user['firstName'] . ' ' . $user['lastName']) ?>">
+                            <span><?= htmlspecialchars($user['firstName'] . ' ' . $user['lastName']) ?></span>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const currentUserId = <?= $current_user_id ?>;
+        const chatId = <?= isset($_GET['chat_id']) ? $_GET['chat_id'] : 'null' ?>;
+    </script>
+</body>
+</html>

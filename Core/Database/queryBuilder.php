@@ -78,6 +78,44 @@
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
     
+    public function getPostById($postId) {
+        $sql = "SELECT 
+                    p.id AS post_id,
+                    p.caption AS content,
+                    p.created_at,
+                    p.photo AS post_photo,
+                    p.isPublic AS post_public,
+                    p.userId,
+                    CONCAT(u.firstName, ' ', u.lastName) AS username,
+                    pr.avatar AS profile_pic
+                FROM posts p
+                JOIN users u ON p.userId = u.id
+                LEFT JOIN profiles pr ON u.id = pr.id
+                WHERE p.id = :postId";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute(['postId' => $postId]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+    
+    public function getCommentsForPost($postId) {
+        $sql = "SELECT 
+                    c.id,
+                    c.content,
+                    c.created_at,
+                    c.userId,
+                    u.firstName,
+                    u.lastName,
+                    pr.avatar
+                FROM comments c
+                JOIN users u ON c.userId = u.id
+                LEFT JOIN profiles pr ON u.id = pr.id
+                WHERE c.postId = :postId
+                ORDER BY c.created_at DESC";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute(['postId' => $postId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
     public function searchUsers($searchTerm, $currentUserId) {
         $sql = "SELECT 
                     u.id,
