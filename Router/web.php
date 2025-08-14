@@ -10,6 +10,12 @@ return $routes = [
         '/like' => 'PagesController@likePost',
         '/notification' => 'PagesController@notification',
         '/error' => 'PagesController@error',
+        '/edit-profile' => 'PagesController@editProfile',
+        '/comments' => 'PagesController@comments',
+        '/api/notification-counts' => 'PagesController@apiNotificationCounts',
+        '/api/new-posts-count' => 'PagesController@apiNewPostsCount',
+        '/api/posts/like-counts' => 'PagesController@apiLikeCounts',
+        '/api/posts/comment-counts' => 'PagesController@apiCommentCounts'
         '/comments' => 'PagesController@comment'
         
     ],
@@ -22,6 +28,8 @@ return $routes = [
         '/comment' => 'PagesController@commentHandler',
         '/sendMessage' =>'PagesController@sendMessage',
         '/friendRequest' => 'PagesController@friendRequest',
-        '/story-upload' => 'PagesController@storyUpload'
+        '/story-upload' => 'PagesController@storyUpload',
+        '/update-profile' => 'PagesController@updateProfile',
+        '/upload-avatar' => 'PagesController@uploadAvatar'
     ]
 ];

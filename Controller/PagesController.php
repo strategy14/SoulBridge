@@ -121,6 +121,211 @@ class PagesController {
     public function error() {
         require_once 'view/error.view.php';
     }
+    
+    public function editProfile() {
+        if (!isset($_SESSION['user_id'])) {
+            header('Location: /');
+            exit();
+        }
+        
+        $queryBuilder = new queryBuilder();
+        $user_id = $_SESSION['user_id'];
+        
+        // Get user data including profile information
+        $user = $queryBuilder->getUserFullData($user_id);
+        $csrf_token = $_SESSION['csrf_token'];
+        
+        require_once 'view/edit-profile.view.php';
+    }
+    
+    public function updateProfile() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_SESSION['user_id'])) {
+            header('Location: /');
+            exit();
+        }
+        
+        header('Content-Type: application/json');
+        
+        try {
+            // Validate CSRF token
+            if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+                throw new Exception('Invalid CSRF token');
+            }
+            
+            $queryBuilder = new queryBuilder();
+            $user_id = $_SESSION['user_id'];
+            
+            // Validate current password
+            $currentPassword = $_POST['currentPassword'] ?? '';
+            if (!$queryBuilder->verifyCurrentPassword($user_id, $currentPassword)) {
+                throw new Exception('Current password is incorrect');
+            }
+            
+            // Prepare data for update
+            $userData = [
+                'firstName' => trim($_POST['firstName'] ?? ''),
+                'lastName' => trim($_POST['lastName'] ?? ''),
+                'email' => trim($_POST['email'] ?? ''),
+                'birthdate' => $_POST['birthdate'] ?? null,
+                'gender' => $_POST['gender'] ?? null
+            ];
+            
+            $profileData = [
+                'bio' => trim($_POST['bio'] ?? ''),
+                'location' => trim($_POST['location'] ?? '')
+            ];
+            
+            // Validate required fields
+            if (empty($userData['firstName']) || empty($userData['lastName']) || empty($userData['email'])) {
+                throw new Exception('First name, last name, and email are required');
+            }
+            
+            // Validate email format
+            if (!filter_var($userData['email'], FILTER_VALIDATE_EMAIL)) {
+                throw new Exception('Invalid email format');
+            }
+            
+            // Check if email is already taken by another user
+            if ($queryBuilder->isEmailTaken($userData['email'], $user_id)) {
+                throw new Exception('Email is already taken by another user');
+            }
+            
+            // Handle password change if requested
+            if (!empty($_POST['newPassword'])) {
+                $newPassword = $_POST['newPassword'];
+                $confirmPassword = $_POST['confirmPassword'] ?? '';
+                
+                if ($newPassword !== $confirmPassword) {
+                    throw new Exception('New passwords do not match');
+                }
+                
+                if (strlen($newPassword) < 8) {
+                    throw new Exception('New password must be at least 8 characters long');
+                }
+                
+                $userData['password'] = password_hash($newPassword, PASSWORD_DEFAULT);
+            }
+            
+            // Update user data
+            $result = $queryBuilder->updateUserProfile($user_id, $userData, $profileData);
+            
+            if ($result) {
+                echo json_encode(['success' => true, 'message' => 'Profile updated successfully']);
+            } else {
+                throw new Exception('Failed to update profile');
+            }
+            
+        } catch (Exception $e) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+        exit();
+    }
+    
+    public function uploadAvatar() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_SESSION['user_id'])) {
+            header('Location: /');
+            exit();
+        }
+        
+        header('Content-Type: application/json');
+        
+        try {
+            // Validate CSRF token
+            if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+                throw new Exception('Invalid CSRF token');
+            }
+            
+            if (!isset($_FILES['avatar']) || $_FILES['avatar']['error'] !== UPLOAD_ERR_OK) {
+                throw new Exception('No file uploaded or upload error');
+            }
+            
+            $file = $_FILES['avatar'];
+            
+            // Validate file type
+            $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+            if (!in_array($file['type'], $allowedTypes)) {
+                throw new Exception('Invalid file type. Only JPEG, PNG, and GIF are allowed');
+            }
+            
+            // Validate file size (max 5MB)
+            if ($file['size'] > 5 * 1024 * 1024) {
+                throw new Exception('File size too large. Maximum 5MB allowed');
+            }
+            
+            // Create upload directory if it doesn't exist
+            $uploadDir = 'uploads/avatars/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0777, true);
+            }
+            
+            // Generate unique filename
+            $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+            $filename = 'avatar_' . $_SESSION['user_id'] . '_' . time() . '.' . $extension;
+            $filepath = $uploadDir . $filename;
+            
+            // Move uploaded file
+            if (!move_uploaded_file($file['tmp_name'], $filepath)) {
+                throw new Exception('Failed to save uploaded file');
+            }
+            
+            // Update database
+            $queryBuilder = new queryBuilder();
+            $result = $queryBuilder->updateUserAvatar($_SESSION['user_id'], $filepath);
+            
+            if ($result) {
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Avatar updated successfully',
+                    'avatar_url' => $filepath
+                ]);
+            } else {
+                throw new Exception('Failed to update avatar in database');
+            }
+            
+        } catch (Exception $e) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+        exit();
+    }
+    
+    public function comments() {
+        if (!isset($_SESSION['user_id'])) {
+            header('Location: /');
+            exit();
+        }
+        
+        $queryBuilder = new queryBuilder();
+        $current_user_id = $_SESSION['user_id'];
+        $post_id = isset($_GET['post_id']) ? (int)$_GET['post_id'] : 0;
+        
+        if ($post_id <= 0) {
+            header('Location: /home');
+            exit();
+        }
+        
+        // Get post data
+        $post = $queryBuilder->getPostById($post_id);
+        if (!$post) {
+            header('Location: /error');
+            exit();
+        }
+        
+        // Get comments for the post
+        $comments = $queryBuilder->getCommentsForPost($post_id);
+        
+        // Get user data
+        $user = $queryBuilder->getUserData($current_user_id);
+        $noti_count = $queryBuilder->getUnreadNotificationsCount($current_user_id);
+        $unread_count = $queryBuilder->getUnreadMessagesCount($current_user_id);
+        
+        // Check if user has liked the post
+        $liked = $queryBuilder->hasUserLikedPost($current_user_id, $post_id);
+        $like_count = $queryBuilder->getLikesCountForPost($post_id);
+        
+        require_once 'view/comments.view.php';
+    }
     public function logout() {
         session_destroy();
         header('Location: /');

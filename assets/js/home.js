@@ -1,179 +1,206 @@
-const menuItems = document.querySelectorAll(".menu-item");
+/**
+ * Home Page JavaScript
+ * Handles post interactions, real-time updates, and UI functionality
+ */
 
-// Messages
-const messagesNotifications = document.querySelector("#messages-notifications");
-const messages = document.querySelector(".messages");
-const message = document.querySelectorAll(".message");
-const messageSearch = document.querySelector("#message-search");
+// Global variables
+let currentStoryIndex = 0;
+let stories = [];
+let isStoryPlaying = false;
+let storyTimer = null;
 
-// Theme
-const theme = document.querySelector("#theme");
-const themeModel = document.querySelector(".customize-theme");
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    initializeHomePage();
+    initializeRealTimeUpdates();
+    loadStories();
+});
 
-const fontSizes = document.querySelectorAll(".choose-size span");
-const root = document.querySelector(":root");
-const chooseColor = document.querySelectorAll(".choose-color span");
+/**
+ * Initialize home page functionality
+ */
+function initializeHomePage() {
+    // Initialize post interactions
+    initializePostInteractions();
+    
+    // Initialize media preview
+    initializeMediaPreview();
+    
+    // Initialize privacy toggle
+    initializePrivacyToggle();
+    
+    // Initialize friend request handlers
+    initializeFriendRequests();
+    
+    // Initialize infinite scroll
+    initializeInfiniteScroll();
+}
 
-// Dark Theme
-const bg1 = document.querySelector(".bg-1");
-const bg2 = document.querySelector(".bg-2");
-const bg3 = document.querySelector(".bg-3");
+/**
+ * Initialize post interaction handlers
+ */
+function initializePostInteractions() {
+    // Like button handlers
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.like-btn')) {
+            e.preventDefault();
+            const likeBtn = e.target.closest('.like-btn');
+            const postId = likeBtn.dataset.postId;
+            toggleLike(postId);
+        }
+    });
+    
+    // Comment form handlers
+    document.addEventListener('submit', function(e) {
+        if (e.target.classList.contains('comment-form')) {
+            e.preventDefault();
+            const form = e.target;
+            const postId = form.closest('.post-card').dataset.postId;
+            submitComment(e, postId);
+        }
+    });
+}
 
-// ====================================== SIDEBAR ======================================
+/**
+ * Toggle like status for a post
+ */
+async function toggleLike(postId) {
+    const likeBtn = document.querySelector(`[data-post-id="${postId}"].like-btn`);
+    const heartIcon = likeBtn.querySelector('i');
+    const likeCountSpan = likeBtn.closest('.post-card').querySelector('.like-count');
+    
+    const isLiked = likeBtn.classList.contains('liked');
+    const action = isLiked ? 'unlike' : 'like';
+    
+    // Optimistic UI update
+    updateLikeUI(likeBtn, heartIcon, likeCountSpan, !isLiked);
+    
+    try {
+        const response = await fetch('/like', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': window.csrfToken
+            },
+            body: JSON.stringify({
+                post_id: parseInt(postId),
+                action: action
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Update with server response
+            updateLikeUI(likeBtn, heartIcon, likeCountSpan, data.liked, data.like_count);
+            showToast('success', isLiked ? 'Post unliked' : 'Post liked');
+        } else {
+            // Revert optimistic update on error
+            updateLikeUI(likeBtn, heartIcon, likeCountSpan, isLiked);
+            showToast('error', 'Failed to update like');
+        }
+    } catch (error) {
+        console.error('Like error:', error);
+        // Revert optimistic update on error
+        updateLikeUI(likeBtn, heartIcon, likeCountSpan, isLiked);
+        showToast('error', 'Network error occurred');
+    }
+}
 
-// Remove active class from menu items
-const changeActiveItem = () => {
-  menuItems.forEach((item) => item.classList.remove("active"));
-};
-
-menuItems.forEach((item) => {
-  item.addEventListener("click", () => {
-    changeActiveItem();
-    item.classList.add("active");
-
-    const notificationPopup = document.querySelector(".notification-popup");
-    if (item.id !== "Notifications") {
-      if (notificationPopup) notificationPopup.style.display = "none";
+/**
+ * Update like button UI
+ */
+function updateLikeUI(likeBtn, heartIcon, likeCountSpan, isLiked, likeCount = null) {
+    if (isLiked) {
+        likeBtn.classList.add('liked');
+        heartIcon.classList.remove('far');
+        heartIcon.classList.add('fas');
     } else {
-      if (notificationPopup) {
-        notificationPopup.style.display = "block";
-        const notificationCount = item.querySelector(".notification-count");
-        if (notificationCount) notificationCount.style.display = "none";
-      }
+        likeBtn.classList.remove('liked');
+        heartIcon.classList.remove('fas');
+        heartIcon.classList.add('far');
     }
-  });
-});
-
-// ====================================== MESSAGES ======================================
-
-// Search messages
-const searchMessage = () => {
-  const val = messageSearch.value.toLowerCase();
-  message.forEach((chat) => {
-    let name = chat.querySelector("h5").textContent.toLowerCase();
-    chat.style.display = name.includes(val) ? "flex" : "none";
-  });
-};
-
-if (messageSearch) messageSearch.addEventListener("keyup", searchMessage);
-
-// Highlight messages when clicked
-if (messagesNotifications) {
-  messagesNotifications.addEventListener("click", () => {
-    if (messages) {
-      messages.style.boxShadow = "0 0 1rem var(--color-primary)";
-      setTimeout(() => (messages.style.boxShadow = "none"), 1500);
+    
+    if (likeCount !== null) {
+        likeCountSpan.textContent = likeCount;
+    } else {
+        // Optimistic update
+        const currentCount = parseInt(likeCountSpan.textContent);
+        likeCountSpan.textContent = isLiked ? currentCount + 1 : currentCount - 1;
     }
-    const notificationCount = messagesNotifications.querySelector(".notification-count");
-    if (notificationCount) notificationCount.style.display = "none";
-  });
 }
 
-// ====================================== THEME CUSTOMIZATION ======================================
-
-const openThemeModel = () => {
-  if (themeModel) themeModel.style.display = "grid";
-};
-
-const closeThemeModel = (e) => {
-  if (e.target.classList.contains("customize-theme") && themeModel) {
-    themeModel.style.display = "none";
-  }
-};
-
-if (theme) theme.addEventListener("click", openThemeModel);
-if (themeModel) themeModel.addEventListener("click", closeThemeModel);
-
-// ===================================== FONTS ======================================
-
-const removeActiveClass = () => {
-  fontSizes.forEach((size) => size.classList.remove("active"));
-};
-
-fontSizes.forEach((size) => {
-  size.addEventListener("click", () => {
-    removeActiveClass();
-    size.classList.add("active");
-
-    let fontSize = "16px"; // Default size
-    if (size.classList.contains("font-size-1")) fontSize = "10px";
-    else if (size.classList.contains("font-size-2")) fontSize = "13px";
-    else if (size.classList.contains("font-size-3")) fontSize = "16px";
-    else if (size.classList.contains("font-size-4")) fontSize = "19px";
-    else if (size.classList.contains("font-size-5")) fontSize = "22px";
-
-    document.documentElement.style.fontSize = fontSize;
-  });
-});
-
-// ===================================== COLOR THEME ======================================
-
-const removeActive = () => {
-  chooseColor.forEach((color) => color.classList.remove("active"));
-};
-
-chooseColor.forEach((color) => {
-  color.addEventListener("click", () => {
-    removeActive();
-    color.classList.add("active");
-
-    let primaryColor = "hsl(252, 75%, 60%)"; // Default color
-    if (color.classList.contains("color-1")) primaryColor = "hsl(252, 75%, 60%)";
-    else if (color.classList.contains("color-2")) primaryColor = "hsl(52, 75%, 60%)";
-    else if (color.classList.contains("color-3")) primaryColor = "hsl(352, 75%, 60%)";
-    else if (color.classList.contains("color-4")) primaryColor = "hsl(152, 75%, 60%)";
-    else if (color.classList.contains("color-5")) primaryColor = "hsl(202, 75%, 60%)";
-
-    root.style.setProperty("--color-primary", primaryColor);
-  });
-});
-
-// ===================================== DARK THEME ======================================
-
-const changeBG = () => {
-  root.style.setProperty("--light-color-lightness", lightColorLightness);
-  root.style.setProperty("--white-color-lightness", whiteColorLightness);
-  root.style.setProperty("--dark-color-lightness", darkColorLightness);
-};
-
-[bg1, bg2, bg3].forEach((bg, index) => {
-  bg.addEventListener("click", () => {
-    whiteColorLightness = index === 1 ? "20%" : "10%";
-    lightColorLightness = index === 1 ? "15%" : "0%";
-    darkColorLightness = "95%";
-
-    [bg1, bg2, bg3].forEach((b) => b.classList.remove("active"));
-    bg.classList.add("active");
-    changeBG();
-  });
-});
-
-// ===================================== SEARCH SUGGESTIONS ======================================
-
-const searchInput = document.querySelector('input[name="search"]');
-
-if (searchInput) {
-  searchInput.addEventListener("input", function (e) {
-    const searchTerm = e.target.value;
-    if (searchTerm.length > 2) {
-      fetch(`search_suggestions.php?search=${encodeURIComponent(searchTerm)}`)
-        .then((response) => response.json())
-        .then((data) => showSuggestions(data));
+/**
+ * Submit comment for a post
+ */
+async function submitComment(event, postId) {
+    const form = event.target;
+    const commentInput = form.querySelector('.comment-input');
+    const comment = commentInput.value.trim();
+    
+    if (!comment) {
+        showToast('error', 'Please enter a comment');
+        return;
     }
-  });
+    
+    const formData = new FormData();
+    formData.append('post_id', postId);
+    formData.append('comment', comment);
+    formData.append('csrf_token', window.csrfToken);
+    
+    try {
+        const response = await fetch('/comment', {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            commentInput.value = '';
+            updateCommentCount(postId);
+            showToast('success', 'Comment added successfully');
+        } else {
+            showToast('error', 'Failed to add comment');
+        }
+    } catch (error) {
+        console.error('Comment error:', error);
+        showToast('error', 'Network error occurred');
+    }
 }
 
-// ===================================== IMAGE PREVIEW ======================================
+/**
+ * Update comment count for a post
+ */
+function updateCommentCount(postId) {
+    const postCard = document.querySelector(`[data-post-id="${postId}"]`);
+    const commentCountSpan = postCard.querySelector('.comment-count');
+    const currentCount = parseInt(commentCountSpan.textContent);
+    commentCountSpan.textContent = currentCount + 1;
+}
 
-const imageInput = document.querySelector('input[type="file"]');
+/**
+ * Initialize media preview functionality
+ */
+function initializeMediaPreview() {
+    const fileInput = document.getElementById('imagefile');
+    if (fileInput) {
+        fileInput.addEventListener('change', previewMedia);
+    }
+}
 
-function previewImage(event) {
-    const input = event.target;
-    const preview = document.getElementById('imagePreview');
+/**
+ * Preview selected media file
+ */
+function previewMedia(event) {
+    const file = event.target.files[0];
+    const preview = document.getElementById('mediaPreview');
     const previewImg = document.getElementById('previewImg');
     const previewVideo = document.getElementById('previewVideo');
-    const file = input.files[0];
-
+    
     if (file) {
         const reader = new FileReader();
         reader.onload = function(e) {
@@ -187,168 +214,555 @@ function previewImage(event) {
                 previewVideo.style.display = 'none';
             }
             preview.style.display = 'block';
-        }
+        };
         reader.readAsDataURL(file);
-    } else {
-        preview.style.display = 'none';
     }
 }
 
-// Close preview functionality
-if (document.getElementById('closePreview')) {
-    document.getElementById('closePreview').addEventListener('click', function() {
-        const preview = document.getElementById('imagePreview');
-        const previewImg = document.getElementById('previewImg');
-        const previewVideo = document.getElementById('previewVideo');
-        const inputFile = document.getElementById('imagefile');
-
-        previewImg.src = '';
-        previewVideo.src = '';
-        preview.style.display = 'none';
-        inputFile.value = '';
-    });
+/**
+ * Remove media preview
+ */
+function removeMediaPreview() {
+    const preview = document.getElementById('mediaPreview');
+    const previewImg = document.getElementById('previewImg');
+    const previewVideo = document.getElementById('previewVideo');
+    const fileInput = document.getElementById('imagefile');
+    
+    previewImg.src = '';
+    previewVideo.src = '';
+    preview.style.display = 'none';
+    fileInput.value = '';
 }
 
-// ===================================== LIKE FUNCTIONALITY ======================================
-
-document.addEventListener('DOMContentLoaded', function() {
-    // Handle like button clicks
-    document.addEventListener('click', function(e) {
-        if (e.target.closest('.like-btn')) {
-            e.preventDefault();
-            const likeBtn = e.target.closest('.like-btn');
-            const postId = likeBtn.closest('.feed').dataset.postId;
-            const heartIcon = likeBtn.querySelector('i');
-            const likeCount = likeBtn.querySelector('.like-count i');
-            
-            const isLiked = heartIcon.classList.contains('fa-solid');
-            const action = isLiked ? 'unlike' : 'like';
-            
-            fetch('/like', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    post_id: parseInt(postId),
-                    action: action
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Update heart icon
-                    if (data.liked) {
-                        heartIcon.classList.remove('fa-regular');
-                        heartIcon.classList.add('fa-solid');
-                        heartIcon.style.color = 'red';
-                    } else {
-                        heartIcon.classList.remove('fa-solid');
-                        heartIcon.classList.add('fa-regular');
-                        heartIcon.style.color = '';
-                    }
-                    
-                    // Update like count
-                    likeCount.textContent = data.like_count;
-                } else {
-                    console.error('Like action failed:', data.error);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-            });
-        }
-    });
+/**
+ * Initialize privacy toggle
+ */
+function initializePrivacyToggle() {
+    const privacyCheckbox = document.getElementById('privacy-checkbox');
+    const privacyIcon = document.querySelector('.privacy-icon');
+    const privacyText = document.querySelector('.privacy-text');
     
-    // Handle comment form submissions
-    document.addEventListener('submit', function(e) {
-        if (e.target.classList.contains('comment-form')) {
-            e.preventDefault();
-            const form = e.target;
-            const formData = new FormData(form);
-            
-            fetch('/comment', {
-                method: 'POST',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    form.reset();
-                    // Optionally reload comments or update count
-                    location.reload();
-                } else {
-                    console.error('Comment submission failed');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                // Fallback to normal form submission
-                form.submit();
-            });
-        }
-    });
-});
-
-// ===================================== STORY FUNCTIONALITY ======================================
-
-function initializeStories() {
-    const storiesContainer = document.querySelector('.stories');
-    if (storiesContainer) {
-        // Make stories horizontally scrollable
-        storiesContainer.style.overflowX = 'auto';
-        storiesContainer.style.scrollBehavior = 'smooth';
-        
-        // Add click handlers for story viewing
-        const storyItems = document.querySelectorAll('.story');
-        storyItems.forEach(story => {
-            story.addEventListener('click', function() {
-                const storyId = this.dataset.storyId;
-                if (storyId) {
-                    viewStory(storyId);
-                }
-            });
+    if (privacyCheckbox) {
+        privacyCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                privacyIcon.className = 'fas fa-globe privacy-icon';
+                privacyText.textContent = 'Public';
+            } else {
+                privacyIcon.className = 'fas fa-user-friends privacy-icon';
+                privacyText.textContent = 'Friends';
+            }
         });
     }
 }
 
-function viewStory(storyId) {
-    // Create story viewer modal
-    const modal = document.createElement('div');
-    modal.className = 'story-modal';
-    modal.innerHTML = `
-        <div class="story-viewer">
-            <div class="story-header">
-                <div class="story-progress"></div>
-                <button class="close-story">&times;</button>
-            </div>
-            <div class="story-content">
-                <div class="story-media-container">
-                    <!-- Story content will be loaded here -->
-                </div>
-            </div>
-        </div>
+/**
+ * Initialize friend request handlers
+ */
+function initializeFriendRequests() {
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('accept-btn')) {
+            const userId = e.target.closest('.friend-request').dataset.userId;
+            handleFriendRequest('accept', userId);
+        } else if (e.target.classList.contains('decline-btn')) {
+            const userId = e.target.closest('.friend-request').dataset.userId;
+            handleFriendRequest('decline', userId);
+        }
+    });
+}
+
+/**
+ * Handle friend request actions
+ */
+async function handleFriendRequest(action, userId) {
+    try {
+        const response = await fetch('/friendRequest', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': window.csrfToken
+            },
+            body: JSON.stringify({
+                action: action,
+                user_id: parseInt(userId)
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Remove the friend request from UI
+            const requestElement = document.querySelector(`[data-user-id="${userId}"]`);
+            if (requestElement) {
+                requestElement.remove();
+                updateFriendRequestCount(-1);
+            }
+            showToast('success', data.message);
+        } else {
+            showToast('error', data.error || 'Action failed');
+        }
+    } catch (error) {
+        console.error('Friend request error:', error);
+        showToast('error', 'Network error occurred');
+    }
+}
+
+/**
+ * Update friend request count
+ */
+function updateFriendRequestCount(change) {
+    const badge = document.querySelector('.sidebar-card .badge');
+    if (badge) {
+        const currentCount = parseInt(badge.textContent);
+        const newCount = Math.max(0, currentCount + change);
+        badge.textContent = newCount;
+        
+        if (newCount === 0) {
+            badge.style.display = 'none';
+        }
+    }
+}
+
+/**
+ * Initialize infinite scroll
+ */
+function initializeInfiniteScroll() {
+    const loadMoreBtn = document.querySelector('.load-more-btn');
+    if (loadMoreBtn) {
+        loadMoreBtn.addEventListener('click', loadMorePosts);
+    }
+    
+    // Auto-load when near bottom
+    window.addEventListener('scroll', function() {
+        if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 1000) {
+            loadMorePosts();
+        }
+    });
+}
+
+/**
+ * Load more posts
+ */
+async function loadMorePosts() {
+    const loadMoreBtn = document.querySelector('.load-more-btn');
+    const originalText = loadMoreBtn.innerHTML;
+    
+    loadMoreBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+    loadMoreBtn.disabled = true;
+    
+    try {
+        // Simulate loading more posts
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        showToast('info', 'No more posts to load');
+    } catch (error) {
+        console.error('Load more error:', error);
+        showToast('error', 'Failed to load more posts');
+    } finally {
+        loadMoreBtn.innerHTML = originalText;
+        loadMoreBtn.disabled = false;
+    }
+}
+
+/**
+ * Initialize real-time updates
+ */
+function initializeRealTimeUpdates() {
+    // Poll for new notifications every 30 seconds
+    setInterval(updateNotificationCounts, 30000);
+    
+    // Poll for new posts every 60 seconds
+    setInterval(checkForNewPosts, 60000);
+}
+
+/**
+ * Update notification counts
+ */
+async function updateNotificationCounts() {
+    try {
+        const response = await fetch('/api/notification-counts', {
+            headers: {
+                'X-CSRF-Token': window.csrfToken
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            
+            // Update notification badge
+            const notificationBadge = document.getElementById('notification-count');
+            if (data.notifications > 0) {
+                if (notificationBadge) {
+                    notificationBadge.textContent = data.notifications;
+                    notificationBadge.style.display = 'inline';
+                } else {
+                    // Create badge if it doesn't exist
+                    const notificationsLink = document.getElementById('notifications-link');
+                    const badge = document.createElement('span');
+                    badge.className = 'notification-badge';
+                    badge.id = 'notification-count';
+                    badge.textContent = data.notifications;
+                    notificationsLink.appendChild(badge);
+                }
+            } else if (notificationBadge) {
+                notificationBadge.style.display = 'none';
+            }
+            
+            // Update message badge
+            const messageBadge = document.getElementById('message-count');
+            if (data.messages > 0) {
+                if (messageBadge) {
+                    messageBadge.textContent = data.messages;
+                    messageBadge.style.display = 'inline';
+                } else {
+                    // Create badge if it doesn't exist
+                    const messagesLink = document.getElementById('messages-link');
+                    const badge = document.createElement('span');
+                    badge.className = 'notification-badge';
+                    badge.id = 'message-count';
+                    badge.textContent = data.messages;
+                    messagesLink.appendChild(badge);
+                }
+            } else if (messageBadge) {
+                messageBadge.style.display = 'none';
+            }
+        }
+    } catch (error) {
+        console.error('Failed to update notification counts:', error);
+    }
+}
+
+/**
+ * Check for new posts
+ */
+async function checkForNewPosts() {
+    try {
+        const response = await fetch('/api/new-posts-count', {
+            headers: {
+                'X-CSRF-Token': window.csrfToken
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            
+            if (data.newPosts > 0) {
+                showNewPostsNotification(data.newPosts);
+            }
+        }
+    } catch (error) {
+        console.error('Failed to check for new posts:', error);
+    }
+}
+
+/**
+ * Show new posts notification
+ */
+function showNewPostsNotification(count) {
+    const notification = document.createElement('div');
+    notification.className = 'new-posts-notification';
+    notification.innerHTML = `
+        <i class="fas fa-arrow-up"></i>
+        ${count} new post${count > 1 ? 's' : ''} available
+        <button onclick="refreshFeed()">Refresh</button>
     `;
     
-    document.body.appendChild(modal);
+    document.body.appendChild(notification);
     
-    // Close story functionality
-    modal.querySelector('.close-story').addEventListener('click', function() {
-        document.body.removeChild(modal);
-    });
-    
-    // Load story content (you can implement this based on your needs)
-    loadStoryContent(storyId, modal.querySelector('.story-media-container'));
+    // Auto-remove after 10 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 10000);
 }
 
-function loadStoryContent(storyId, container) {
-    // This would typically fetch story data from the server
-    // For now, we'll just show a placeholder
-    container.innerHTML = '<p>Story content loading...</p>';
+/**
+ * Refresh the feed
+ */
+function refreshFeed() {
+    window.location.reload();
 }
 
-// Initialize stories when page loads
-document.addEventListener('DOMContentLoaded', initializeStories);
+/**
+ * Load stories data
+ */
+function loadStories() {
+    const storyElements = document.querySelectorAll('.story[data-story-id]');
+    stories = Array.from(storyElements).map(element => ({
+        id: element.dataset.storyId,
+        element: element
+    }));
+}
+
+/**
+ * Open story viewer
+ */
+function openStoryViewer(storyId) {
+    const storyIndex = stories.findIndex(story => story.id == storyId);
+    if (storyIndex !== -1) {
+        currentStoryIndex = storyIndex;
+        showStoryModal();
+        loadStory(storyId);
+    }
+}
+
+/**
+ * Show story modal
+ */
+function showStoryModal() {
+    const modal = document.getElementById('storyModal');
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+/**
+ * Close story viewer
+ */
+function closeStoryViewer() {
+    const modal = document.getElementById('storyModal');
+    modal.style.display = 'none';
+    document.body.style.overflow = 'auto';
+    
+    if (storyTimer) {
+        clearInterval(storyTimer);
+        storyTimer = null;
+    }
+    isStoryPlaying = false;
+}
+
+/**
+ * Load story content
+ */
+async function loadStory(storyId) {
+    try {
+        const response = await fetch(`/api/story/${storyId}`);
+        const story = await response.json();
+        
+        if (story.success) {
+            displayStory(story.data);
+            startStoryProgress();
+        } else {
+            showToast('error', 'Failed to load story');
+            closeStoryViewer();
+        }
+    } catch (error) {
+        console.error('Story load error:', error);
+        showToast('error', 'Failed to load story');
+        closeStoryViewer();
+    }
+}
+
+/**
+ * Display story content
+ */
+function displayStory(story) {
+    const storyMedia = document.getElementById('storyMedia');
+    const authorAvatar = document.getElementById('storyAuthorAvatar');
+    const authorName = document.getElementById('storyAuthorName');
+    const storyTime = document.getElementById('storyTime');
+    
+    // Clear previous content
+    storyMedia.innerHTML = '';
+    
+    // Add media
+    if (story.mediaType === 'video') {
+        const video = document.createElement('video');
+        video.src = story.media;
+        video.autoplay = true;
+        video.muted = true;
+        video.loop = true;
+        storyMedia.appendChild(video);
+    } else {
+        const img = document.createElement('img');
+        img.src = story.media;
+        img.alt = 'Story';
+        storyMedia.appendChild(img);
+    }
+    
+    // Update info
+    authorAvatar.src = story.avatar || 'images/profile.jpg';
+    authorName.textContent = story.firstName + ' ' + story.lastName;
+    storyTime.textContent = formatTimeAgo(story.created_at);
+}
+
+/**
+ * Start story progress animation
+ */
+function startStoryProgress() {
+    const progressBar = document.getElementById('storyProgress');
+    let progress = 0;
+    const duration = 5000; // 5 seconds
+    const interval = 50; // Update every 50ms
+    const increment = (interval / duration) * 100;
+    
+    isStoryPlaying = true;
+    progressBar.style.width = '0%';
+    
+    storyTimer = setInterval(() => {
+        if (!isStoryPlaying) {
+            clearInterval(storyTimer);
+            return;
+        }
+        
+        progress += increment;
+        progressBar.style.width = progress + '%';
+        
+        if (progress >= 100) {
+            clearInterval(storyTimer);
+            nextStory();
+        }
+    }, interval);
+}
+
+/**
+ * Navigate to next story
+ */
+function nextStory() {
+    if (currentStoryIndex < stories.length - 1) {
+        currentStoryIndex++;
+        const nextStoryId = stories[currentStoryIndex].id;
+        loadStory(nextStoryId);
+    } else {
+        closeStoryViewer();
+    }
+}
+
+/**
+ * Navigate to previous story
+ */
+function previousStory() {
+    if (currentStoryIndex > 0) {
+        currentStoryIndex--;
+        const prevStoryId = stories[currentStoryIndex].id;
+        loadStory(prevStoryId);
+    }
+}
+
+/**
+ * Open image modal
+ */
+function openImageModal(imageSrc) {
+    const modal = document.getElementById('imageModal');
+    const modalImage = document.getElementById('modalImage');
+    
+    modalImage.src = imageSrc;
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+/**
+ * Close image modal
+ */
+function closeImageModal() {
+    const modal = document.getElementById('imageModal');
+    modal.style.display = 'none';
+    document.body.style.overflow = 'auto';
+}
+
+/**
+ * Show toast notification
+ */
+function showToast(type, message) {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    
+    const icon = type === 'success' ? 'check-circle' : 
+                 type === 'error' ? 'exclamation-circle' : 'info-circle';
+    
+    toast.innerHTML = `
+        <i class="fas fa-${icon}"></i>
+        <span>${message}</span>
+    `;
+    
+    container.appendChild(toast);
+    
+    // Auto-remove after 4 seconds
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.style.animation = 'slideOut 0.3s ease forwards';
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 300);
+        }
+    }, 4000);
+}
+
+/**
+ * Format time ago
+ */
+function formatTimeAgo(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
+    
+    if (diffInSeconds < 60) {
+        return 'Just now';
+    } else if (diffInSeconds < 3600) {
+        const minutes = Math.floor(diffInSeconds / 60);
+        return `${minutes}m ago`;
+    } else if (diffInSeconds < 86400) {
+        const hours = Math.floor(diffInSeconds / 3600);
+        return `${hours}h ago`;
+    } else {
+        const days = Math.floor(diffInSeconds / 86400);
+        return `${days}d ago`;
+    }
+}
+
+// Add CSS for new posts notification
+const style = document.createElement('style');
+style.textContent = `
+    .new-posts-notification {
+        position: fixed;
+        top: 100px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--primary-color);
+        color: white;
+        padding: 12px 20px;
+        border-radius: 25px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        box-shadow: var(--shadow-medium);
+        z-index: 1000;
+        animation: slideDown 0.3s ease;
+    }
+    
+    .new-posts-notification button {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        border: none;
+        padding: 4px 12px;
+        border-radius: 12px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
+    }
+    
+    .new-posts-notification button:hover {
+        background: rgba(255, 255, 255, 0.3);
+    }
+    
+    @keyframes slideDown {
+        from {
+            transform: translateX(-50%) translateY(-100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+    }
+    
+    @keyframes slideOut {
+        to {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+    }
+`;
+document.head.appendChild(style);

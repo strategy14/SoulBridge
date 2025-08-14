@@ -1,359 +1,773 @@
-// Comments functionality
+/**
+ * Comments JavaScript
+ * Handles comment interactions, sorting, and real-time updates
+ */
+
+// Global variables
+let currentSort = 'newest';
+let commentPollingInterval = null;
+
+// Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     initializeComments();
 });
 
+/**
+ * Initialize comments functionality
+ */
 function initializeComments() {
-    // Initialize comment form
     initializeCommentForm();
-    
-    // Initialize comment actions
-    initializeCommentActions();
-    
-    // Initialize sorting
     initializeSorting();
-    
-    // Auto-resize textarea
-    initializeTextareaResize();
+    initializeCommentActions();
+    initializeRealTimeUpdates();
+    autoResizeTextarea();
 }
 
+/**
+ * Initialize comment form
+ */
 function initializeCommentForm() {
-    const commentForm = document.getElementById('mainCommentForm');
-    if (!commentForm) return;
-    
-    commentForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const formData = new FormData(commentForm);
-        const submitBtn = commentForm.querySelector('.submit-btn');
-        const textarea = commentForm.querySelector('.comment-textarea');
-        
-        if (!textarea.value.trim()) {
-            showToast('Please write a comment', 'error');
-            return;
-        }
-        
-        // Add loading state
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Posting...</span>';
-        
-        try {
-            const response = await fetch('/comment', {
-                method: 'POST',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: formData
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                // Clear form
-                textarea.value = '';
-                textarea.style.height = 'auto';
-                
-                // Add comment to list
-                await addCommentToList(formData.get('comment'));
-                
-                // Update comment count
-                updateCommentCount(1);
-                
-                showToast('Comment posted successfully!', 'success');
-            } else {
-                throw new Error(result.error || 'Failed to post comment');
-            }
-        } catch (error) {
-            console.error('Error:', error);
-            showToast(error.message || 'Failed to post comment', 'error');
-        } finally {
-            // Reset button
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i><span>Post</span>';
-        }
-    });
-}
-
-async function addCommentToList(commentText) {
-    const commentsList = document.getElementById('commentsList');
-    const emptyState = commentsList.querySelector('.empty-comments');
-    
-    // Remove empty state if it exists
-    if (emptyState) {
-        emptyState.remove();
+    const commentForm = document.querySelector('.comment-form');
+    if (commentForm) {
+        commentForm.addEventListener('submit', submitComment);
     }
     
-    // Create new comment element
-    const commentElement = document.createElement('div');
-    commentElement.className = 'comment-item';
-    commentElement.innerHTML = `
-        <div class="comment-avatar-container">
-            <img src="${document.querySelector('.comment-avatar').src}" 
-                 alt="Your avatar" 
-                 class="comment-avatar">
-        </div>
+    // Auto-resize textarea
+    const commentInput = document.querySelector('.comment-input');
+    if (commentInput) {
+        commentInput.addEventListener('input', autoResizeTextarea);
+        commentInput.addEventListener('keydown', handleKeyDown);
+    }
+}
+
+/**
+ * Auto-resize textarea
+ */
+function autoResizeTextarea() {
+    const textarea = document.querySelector('.comment-input');
+    if (textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+    }
+}
+
+/**
+ * Handle keyboard shortcuts
+ */
+function handleKeyDown(event) {
+    // Submit on Ctrl+Enter or Cmd+Enter
+    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+        event.preventDefault();
+        const form = event.target.closest('form');
+        if (form) {
+            submitComment({ target: form, preventDefault: () => {} });
+        }
+    }
+}
+
+/**
+ * Submit comment
+ */
+async function submitComment(event) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const commentInput = form.querySelector('.comment-input');
+    const submitBtn = form.querySelector('.submit-btn');
+    const comment = commentInput.value.trim();
+    
+    if (!comment) {
+        showToast('error', 'Please enter a comment');
+        commentInput.focus();
+        return;
+    }
+    
+    // Disable submit button and show loading
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    
+    // Create optimistic comment
+    const optimisticComment = {
+        id: 'temp_' + Date.now(),
+        content: comment,
+        userId: window.currentUserId,
+        username: 'You',
+        avatar: document.querySelector('.comment-input-container .profile-photo img').src,
+        created_at: new Date().toISOString(),
+        isOptimistic: true
+    };
+    
+    // Add optimistic comment to UI
+    addCommentToList(optimisticComment);
+    commentInput.value = '';
+    autoResizeTextarea();
+    
+    try {
+        const formData = new FormData(form);
         
+        const response = await fetch('/comment', {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Remove optimistic comment
+            removeOptimisticComments();
+            
+            // Reload comments to get the real comment with proper ID
+            await loadComments();
+            
+            showToast('success', 'Comment added successfully');
+            updateCommentCount(1);
+        } else {
+            throw new Error(data.message || 'Failed to add comment');
+        }
+    } catch (error) {
+        console.error('Comment submission error:', error);
+        showToast('error', 'Failed to add comment');
+        
+        // Remove optimistic comment on error
+        removeOptimisticComments();
+    } finally {
+        // Re-enable submit button
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
+        commentInput.focus();
+    }
+}
+
+/**
+ * Add comment to list
+ */
+function addCommentToList(comment) {
+    const commentsList = document.getElementById('commentsList');
+    const emptyComments = commentsList.querySelector('.empty-comments');
+    
+    // Remove empty state if it exists
+    if (emptyComments) {
+        emptyComments.remove();
+    }
+    
+    const commentElement = createCommentElement(comment);
+    
+    if (currentSort === 'newest') {
+        commentsList.appendChild(commentElement);
+    } else {
+        commentsList.insertBefore(commentElement, commentsList.firstChild);
+    }
+    
+    // Scroll to new comment
+    commentElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+/**
+ * Create comment element
+ */
+function createCommentElement(comment) {
+    const div = document.createElement('div');
+    div.className = 'comment-item';
+    div.dataset.commentId = comment.id;
+    
+    if (comment.isOptimistic) {
+        div.classList.add('optimistic');
+    }
+    
+    const timeAgo = formatTimeAgo(comment.created_at);
+    const isOwnComment = comment.userId == window.currentUserId;
+    
+    div.innerHTML = `
+        <div class="comment-avatar">
+            <a href="profile?id=${comment.userId}">
+                <img src="${comment.avatar || 'images/profile.jpg'}" 
+                     alt="Profile Picture"
+                     onerror="this.src='images/profile.jpg'">
+            </a>
+        </div>
         <div class="comment-content">
             <div class="comment-bubble">
                 <div class="comment-header">
-                    <h4 class="commenter-name">You</h4>
-                    <time class="comment-time">Just now</time>
+                    <a href="profile?id=${comment.userId}" class="commenter-name">
+                        ${escapeHtml(comment.username)}
+                    </a>
+                    <time class="comment-time" datetime="${comment.created_at}">
+                        ${timeAgo}
+                    </time>
                 </div>
-                <p class="comment-text">${escapeHtml(commentText)}</p>
+                <div class="comment-text">
+                    <p>${escapeHtml(comment.content).replace(/\n/g, '<br>')}</p>
+                </div>
             </div>
-            
             <div class="comment-actions">
-                <button class="action-btn like-comment-btn">
+                <button class="comment-action-btn like-comment-btn" 
+                        data-comment-id="${comment.id}">
                     <i class="far fa-heart"></i>
                     <span>Like</span>
                 </button>
-                <button class="action-btn reply-btn">
+                <button class="comment-action-btn reply-btn" 
+                        data-comment-id="${comment.id}">
                     <i class="fas fa-reply"></i>
                     <span>Reply</span>
                 </button>
-                <button class="action-btn delete-btn">
-                    <i class="fas fa-trash"></i>
-                    <span>Delete</span>
-                </button>
+                ${isOwnComment ? `
+                    <button class="comment-action-btn delete-btn" 
+                            data-comment-id="${comment.id}"
+                            onclick="deleteComment(${comment.id})">
+                        <i class="fas fa-trash"></i>
+                        <span>Delete</span>
+                    </button>
+                ` : ''}
             </div>
         </div>
     `;
     
-    // Add to top of comments list
-    commentsList.insertBefore(commentElement, commentsList.firstChild);
-    
-    // Animate in
-    commentElement.style.opacity = '0';
-    commentElement.style.transform = 'translateY(-20px)';
-    
-    setTimeout(() => {
-        commentElement.style.transition = 'all 0.3s ease';
-        commentElement.style.opacity = '1';
-        commentElement.style.transform = 'translateY(0)';
-    }, 100);
-    
-    // Initialize actions for new comment
-    initializeCommentActionsForElement(commentElement);
+    return div;
 }
 
+/**
+ * Remove optimistic comments
+ */
+function removeOptimisticComments() {
+    const optimisticComments = document.querySelectorAll('.comment-item.optimistic');
+    optimisticComments.forEach(comment => comment.remove());
+}
+
+/**
+ * Initialize sorting functionality
+ */
+function initializeSorting() {
+    const sortBtns = document.querySelectorAll('.sort-btn');
+    sortBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const sortType = this.dataset.sort;
+            switchSort(sortType);
+        });
+    });
+}
+
+/**
+ * Switch comment sorting
+ */
+function switchSort(sortType) {
+    if (sortType === currentSort) return;
+    
+    currentSort = sortType;
+    
+    // Update active button
+    document.querySelectorAll('.sort-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.querySelector(`[data-sort="${sortType}"]`).classList.add('active');
+    
+    // Re-sort comments
+    sortComments(sortType);
+}
+
+/**
+ * Sort comments
+ */
+function sortComments(sortType) {
+    const commentsList = document.getElementById('commentsList');
+    const comments = Array.from(commentsList.querySelectorAll('.comment-item'));
+    
+    comments.sort((a, b) => {
+        const timeA = new Date(a.querySelector('.comment-time').getAttribute('datetime'));
+        const timeB = new Date(b.querySelector('.comment-time').getAttribute('datetime'));
+        
+        return sortType === 'newest' ? timeB - timeA : timeA - timeB;
+    });
+    
+    // Re-append sorted comments
+    comments.forEach(comment => {
+        commentsList.appendChild(comment);
+    });
+}
+
+/**
+ * Initialize comment actions
+ */
 function initializeCommentActions() {
-    const commentItems = document.querySelectorAll('.comment-item');
-    commentItems.forEach(initializeCommentActionsForElement);
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.like-comment-btn')) {
+            const btn = e.target.closest('.like-comment-btn');
+            const commentId = btn.dataset.commentId;
+            toggleCommentLike(commentId);
+        } else if (e.target.closest('.reply-btn')) {
+            const btn = e.target.closest('.reply-btn');
+            const commentId = btn.dataset.commentId;
+            replyToComment(commentId);
+        }
+    });
 }
 
-function initializeCommentActionsForElement(commentElement) {
-    // Like button
-    const likeBtn = commentElement.querySelector('.like-comment-btn');
-    if (likeBtn) {
-        likeBtn.addEventListener('click', () => {
-            const icon = likeBtn.querySelector('i');
-            const span = likeBtn.querySelector('span');
-            
-            if (icon.classList.contains('far')) {
+/**
+ * Toggle comment like
+ */
+async function toggleCommentLike(commentId) {
+    const likeBtn = document.querySelector(`[data-comment-id="${commentId}"].like-comment-btn`);
+    const icon = likeBtn.querySelector('i');
+    const isLiked = likeBtn.classList.contains('liked');
+    
+    // Optimistic UI update
+    if (isLiked) {
+        likeBtn.classList.remove('liked');
+        icon.classList.remove('fas');
+        icon.classList.add('far');
+    } else {
+        likeBtn.classList.add('liked');
+        icon.classList.remove('far');
+        icon.classList.add('fas');
+    }
+    
+    try {
+        const response = await fetch('/api/comment-like', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': window.csrfToken
+            },
+            body: JSON.stringify({
+                comment_id: parseInt(commentId),
+                action: isLiked ? 'unlike' : 'like'
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            // Revert optimistic update on error
+            if (isLiked) {
+                likeBtn.classList.add('liked');
                 icon.classList.remove('far');
                 icon.classList.add('fas');
-                icon.style.color = '#e0245e';
-                span.textContent = 'Liked';
-                likeBtn.style.color = '#e0245e';
             } else {
+                likeBtn.classList.remove('liked');
                 icon.classList.remove('fas');
                 icon.classList.add('far');
-                icon.style.color = '';
-                span.textContent = 'Like';
-                likeBtn.style.color = '';
             }
-        });
-    }
-    
-    // Reply button
-    const replyBtn = commentElement.querySelector('.reply-btn');
-    if (replyBtn) {
-        replyBtn.addEventListener('click', () => {
-            // Focus on main comment textarea and add @username
-            const textarea = document.querySelector('.comment-textarea');
-            const commenterName = commentElement.querySelector('.commenter-name').textContent;
-            
-            if (textarea) {
-                textarea.focus();
-                textarea.value = `@${commenterName} `;
-                textarea.style.height = 'auto';
-                textarea.style.height = textarea.scrollHeight + 'px';
-            }
-        });
-    }
-    
-    // Delete button
-    const deleteBtn = commentElement.querySelector('.delete-btn');
-    if (deleteBtn) {
-        deleteBtn.addEventListener('click', async () => {
-            if (!confirm('Are you sure you want to delete this comment?')) {
-                return;
-            }
-            
-            const commentId = commentElement.dataset.commentId;
-            
-            try {
-                // Add loading state
-                deleteBtn.disabled = true;
-                deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Deleting...</span>';
-                
-                // Simulate delete request (you'll need to implement the backend)
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                
-                // Remove comment with animation
-                commentElement.style.transition = 'all 0.3s ease';
-                commentElement.style.opacity = '0';
-                commentElement.style.transform = 'translateX(-100%)';
-                
-                setTimeout(() => {
-                    commentElement.remove();
-                    updateCommentCount(-1);
-                    showToast('Comment deleted', 'success');
-                }, 300);
-                
-            } catch (error) {
-                console.error('Error deleting comment:', error);
-                deleteBtn.disabled = false;
-                deleteBtn.innerHTML = '<i class="fas fa-trash"></i><span>Delete</span>';
-                showToast('Failed to delete comment', 'error');
-            }
-        });
-    }
-}
-
-function initializeSorting() {
-    const sortSelect = document.getElementById('sortComments');
-    if (!sortSelect) return;
-    
-    sortSelect.addEventListener('change', (e) => {
-        const sortOrder = e.target.value;
-        const commentsList = document.getElementById('commentsList');
-        const comments = Array.from(commentsList.querySelectorAll('.comment-item'));
-        
-        comments.sort((a, b) => {
-            const timeA = new Date(a.querySelector('.comment-time').textContent);
-            const timeB = new Date(b.querySelector('.comment-time').textContent);
-            
-            if (sortOrder === 'newest') {
-                return timeB - timeA;
-            } else {
-                return timeA - timeB;
-            }
-        });
-        
-        // Re-append sorted comments
-        comments.forEach(comment => {
-            commentsList.appendChild(comment);
-        });
-        
-        // Add sorting animation
-        comments.forEach((comment, index) => {
-            comment.style.animation = `slideIn 0.3s ease ${index * 0.05}s both`;
-        });
-    });
-}
-
-function initializeTextareaResize() {
-    const textarea = document.querySelector('.comment-textarea');
-    if (!textarea) return;
-    
-    textarea.addEventListener('input', function() {
-        this.style.height = 'auto';
-        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
-    });
-    
-    // Handle Enter key
-    textarea.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            const form = this.closest('form');
-            if (form) {
-                form.dispatchEvent(new Event('submit'));
-            }
+            showToast('error', 'Failed to update like');
         }
-    });
-}
-
-function updateCommentCount(change) {
-    const commentCountElements = document.querySelectorAll('.stat-item span, .comments-header-section h2');
-    
-    commentCountElements.forEach(element => {
-        const text = element.textContent;
-        const currentCount = parseInt(text.match(/\d+/)?.[0] || '0');
-        const newCount = Math.max(0, currentCount + change);
-        
-        if (element.tagName === 'H2') {
-            element.textContent = `Comments (${newCount})`;
+    } catch (error) {
+        console.error('Comment like error:', error);
+        // Revert optimistic update on error
+        if (isLiked) {
+            likeBtn.classList.add('liked');
+            icon.classList.remove('far');
+            icon.classList.add('fas');
         } else {
-            element.textContent = text.replace(/\d+/, newCount);
+            likeBtn.classList.remove('liked');
+            icon.classList.remove('fas');
+            icon.classList.add('far');
+        }
+        showToast('error', 'Network error occurred');
+    }
+}
+
+/**
+ * Reply to comment
+ */
+function replyToComment(commentId) {
+    const commentItem = document.querySelector(`[data-comment-id="${commentId}"]`);
+    const commenterName = commentItem.querySelector('.commenter-name').textContent;
+    const commentInput = document.querySelector('.comment-input');
+    
+    commentInput.value = `@${commenterName} `;
+    commentInput.focus();
+    commentInput.setSelectionRange(commentInput.value.length, commentInput.value.length);
+    
+    // Scroll to input
+    commentInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+/**
+ * Delete comment
+ */
+async function deleteComment(commentId) {
+    if (!confirm('Are you sure you want to delete this comment?')) {
+        return;
+    }
+    
+    const commentElement = document.querySelector(`[data-comment-id="${commentId}"]`);
+    
+    try {
+        const response = await fetch('/api/comment-delete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': window.csrfToken
+            },
+            body: JSON.stringify({
+                comment_id: parseInt(commentId)
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Remove comment from UI
+            commentElement.style.animation = 'commentSlideOut 0.3s ease forwards';
+            setTimeout(() => {
+                commentElement.remove();
+                updateCommentCount(-1);
+                checkEmptyState();
+            }, 300);
+            
+            showToast('success', 'Comment deleted');
+        } else {
+            showToast('error', data.message || 'Failed to delete comment');
+        }
+    } catch (error) {
+        console.error('Delete comment error:', error);
+        showToast('error', 'Network error occurred');
+    }
+}
+
+/**
+ * Initialize real-time updates
+ */
+function initializeRealTimeUpdates() {
+    // Poll for new comments every 10 seconds
+    commentPollingInterval = setInterval(pollForNewComments, 10000);
+    
+    // Stop polling when page is hidden
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            if (commentPollingInterval) {
+                clearInterval(commentPollingInterval);
+                commentPollingInterval = null;
+            }
+        } else {
+            if (!commentPollingInterval) {
+                commentPollingInterval = setInterval(pollForNewComments, 10000);
+            }
         }
     });
 }
 
-function showToast(message, type = 'info') {
-    const toast = document.getElementById('toast');
-    if (!toast) return;
-    
-    toast.textContent = message;
-    toast.className = `toast ${type}`;
-    toast.classList.add('show');
-    
-    // Hide after 3 seconds
-    setTimeout(() => {
-        toast.classList.remove('show');
-    }, 3000);
+/**
+ * Poll for new comments
+ */
+async function pollForNewComments() {
+    try {
+        const response = await fetch(`/api/comments/${window.postId}/poll`, {
+            headers: {
+                'X-CSRF-Token': window.csrfToken
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            
+            if (data.newComments && data.newComments.length > 0) {
+                addNewComments(data.newComments);
+            }
+        }
+    } catch (error) {
+        console.error('Failed to poll for new comments:', error);
+    }
 }
 
+/**
+ * Add new comments to the list
+ */
+function addNewComments(comments) {
+    comments.forEach(comment => {
+        // Check if comment already exists
+        const existingComment = document.querySelector(`[data-comment-id="${comment.id}"]`);
+        if (!existingComment) {
+            addCommentToList(comment);
+            
+            // Show notification for new comment
+            if (comment.userId != window.currentUserId) {
+                showNewCommentNotification(comment);
+            }
+        }
+    });
+    
+    updateCommentCount(comments.length);
+}
+
+/**
+ * Show new comment notification
+ */
+function showNewCommentNotification(comment) {
+    showToast('info', `${comment.username} added a new comment`);
+}
+
+/**
+ * Load comments from server
+ */
+async function loadComments() {
+    try {
+        const response = await fetch(`/api/comments/${window.postId}`, {
+            headers: {
+                'X-CSRF-Token': window.csrfToken
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            displayComments(data.comments);
+        }
+    } catch (error) {
+        console.error('Failed to load comments:', error);
+    }
+}
+
+/**
+ * Display comments
+ */
+function displayComments(comments) {
+    const commentsList = document.getElementById('commentsList');
+    commentsList.innerHTML = '';
+    
+    if (comments.length === 0) {
+        commentsList.innerHTML = `
+            <div class="empty-comments">
+                <div class="empty-icon">
+                    <i class="fas fa-comment-slash"></i>
+                </div>
+                <h3>No comments yet</h3>
+                <p>Be the first to comment on this post</p>
+            </div>
+        `;
+        return;
+    }
+    
+    comments.forEach(comment => {
+        addCommentToList(comment);
+    });
+}
+
+/**
+ * Update comment count
+ */
+function updateCommentCount(change) {
+    const commentCountElement = document.querySelector('.comment-count');
+    if (commentCountElement) {
+        const currentCount = parseInt(commentCountElement.textContent);
+        const newCount = Math.max(0, currentCount + change);
+        commentCountElement.textContent = newCount;
+        
+        // Update header count
+        const headerCount = document.querySelector('.header-text p');
+        if (headerCount) {
+            headerCount.textContent = `${newCount} comment${newCount !== 1 ? 's' : ''}`;
+        }
+    }
+}
+
+/**
+ * Check empty state
+ */
+function checkEmptyState() {
+    const commentsList = document.getElementById('commentsList');
+    const comments = commentsList.querySelectorAll('.comment-item');
+    
+    if (comments.length === 0) {
+        commentsList.innerHTML = `
+            <div class="empty-comments">
+                <div class="empty-icon">
+                    <i class="fas fa-comment-slash"></i>
+                </div>
+                <h3>No comments yet</h3>
+                <p>Be the first to comment on this post</p>
+            </div>
+        `;
+    }
+}
+
+/**
+ * Toggle like for post
+ */
+async function toggleLike(postId) {
+    const likeBtn = document.querySelector('.like-btn');
+    const heartIcon = likeBtn.querySelector('i');
+    const likeCountSpan = document.querySelector('.like-count');
+    
+    const isLiked = likeBtn.classList.contains('liked');
+    const action = isLiked ? 'unlike' : 'like';
+    
+    // Optimistic UI update
+    if (isLiked) {
+        likeBtn.classList.remove('liked');
+        heartIcon.classList.remove('fas');
+        heartIcon.classList.add('far');
+    } else {
+        likeBtn.classList.add('liked');
+        heartIcon.classList.remove('far');
+        heartIcon.classList.add('fas');
+    }
+    
+    // Update count optimistically
+    const currentCount = parseInt(likeCountSpan.textContent);
+    likeCountSpan.textContent = isLiked ? currentCount - 1 : currentCount + 1;
+    
+    try {
+        const response = await fetch('/like', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': window.csrfToken
+            },
+            body: JSON.stringify({
+                post_id: parseInt(postId),
+                action: action
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Update with server response
+            likeCountSpan.textContent = data.like_count;
+            showToast('success', isLiked ? 'Post unliked' : 'Post liked');
+        } else {
+            // Revert optimistic update on error
+            if (isLiked) {
+                likeBtn.classList.add('liked');
+                heartIcon.classList.remove('far');
+                heartIcon.classList.add('fas');
+            } else {
+                likeBtn.classList.remove('liked');
+                heartIcon.classList.remove('fas');
+                heartIcon.classList.add('far');
+            }
+            likeCountSpan.textContent = currentCount;
+            showToast('error', 'Failed to update like');
+        }
+    } catch (error) {
+        console.error('Like error:', error);
+        // Revert optimistic update on error
+        if (isLiked) {
+            likeBtn.classList.add('liked');
+            heartIcon.classList.remove('far');
+            heartIcon.classList.add('fas');
+        } else {
+            likeBtn.classList.remove('liked');
+            heartIcon.classList.remove('fas');
+            heartIcon.classList.add('far');
+        }
+        likeCountSpan.textContent = currentCount;
+        showToast('error', 'Network error occurred');
+    }
+}
+
+/**
+ * Open image modal
+ */
+function openImageModal(imageSrc) {
+    const modal = document.getElementById('imageModal');
+    const modalImage = document.getElementById('modalImage');
+    
+    modalImage.src = imageSrc;
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+/**
+ * Close image modal
+ */
+function closeImageModal() {
+    const modal = document.getElementById('imageModal');
+    modal.style.display = 'none';
+    document.body.style.overflow = 'auto';
+}
+
+/**
+ * Format time ago
+ */
+function formatTimeAgo(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
+    
+    if (diffInSeconds < 60) {
+        return 'Just now';
+    } else if (diffInSeconds < 3600) {
+        const minutes = Math.floor(diffInSeconds / 60);
+        return `${minutes}m ago`;
+    } else if (diffInSeconds < 86400) {
+        const hours = Math.floor(diffInSeconds / 3600);
+        return `${hours}h ago`;
+    } else if (diffInSeconds < 604800) {
+        const days = Math.floor(diffInSeconds / 86400);
+        return `${days}d ago`;
+    } else {
+        return date.toLocaleDateString();
+    }
+}
+
+/**
+ * Escape HTML to prevent XSS
+ */
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
 }
 
-// Emoji picker functionality (basic)
-document.addEventListener('click', function(e) {
-    if (e.target.closest('.emoji-btn')) {
-        const textarea = document.querySelector('.comment-textarea');
-        if (textarea) {
-            // Simple emoji insertion - you can expand this with a proper emoji picker
-            const emojis = ['😀', '😂', '😍', '🤔', '👍', '❤️', '🎉', '🔥', '💯', '🙌'];
-            const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
-            
-            const cursorPos = textarea.selectionStart;
-            const textBefore = textarea.value.substring(0, cursorPos);
-            const textAfter = textarea.value.substring(cursorPos);
-            
-            textarea.value = textBefore + randomEmoji + textAfter;
-            textarea.focus();
-            textarea.setSelectionRange(cursorPos + randomEmoji.length, cursorPos + randomEmoji.length);
-            
-            // Trigger resize
-            textarea.style.height = 'auto';
-            textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+/**
+ * Show toast notification
+ */
+function showToast(type, message) {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    
+    const icon = type === 'success' ? 'check-circle' : 
+                 type === 'error' ? 'exclamation-circle' : 'info-circle';
+    
+    toast.innerHTML = `
+        <i class="fas fa-${icon}"></i>
+        <span>${message}</span>
+    `;
+    
+    container.appendChild(toast);
+    
+    // Auto-remove after 4 seconds
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.style.animation = 'slideOut 0.3s ease forwards';
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 300);
         }
+    }, 4000);
+}
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', function() {
+    if (commentPollingInterval) {
+        clearInterval(commentPollingInterval);
     }
 });
 
-// Add slide-in animation keyframes
+// Add CSS for comment animations
 const style = document.createElement('style');
 style.textContent = `
-    @keyframes slideIn {
-        from {
-            opacity: 0;
-            transform: translateY(20px);
-        }
+    .comment-item.optimistic {
+        opacity: 0.7;
+    }
+    
+    @keyframes commentSlideOut {
         to {
-            opacity: 1;
-            transform: translateY(0);
+            opacity: 0;
+            transform: translateX(-100%);
+        }
+    }
+    
+    @keyframes slideOut {
+        to {
+            transform: translateX(100%);
+            opacity: 0;
         }
     }
 `;
 document.head.appendChild(style);
-
-// Auto-focus textarea on page load
-window.addEventListener('load', () => {
-    const textarea = document.querySelector('.comment-textarea');
-    if (textarea) {
-        textarea.focus();
-    }
-});

@@ -10,184 +10,252 @@
     <script src="/assets/js/comments.js" defer></script>
 </head>
 <body>
-    <?php
-    $search_term = isset($_GET['search']) ? trim($_GET['search']) : '';
-    require_once 'view/nav.view.php';
-    ?>
+    <?php include 'view/nav.view.php'; ?>
     
-    <div class="comments-main">
-        <div class="comments-container">
-            <!-- Back Button -->
-            <div class="comments-header">
-                <button class="back-btn" onclick="history.back()">
-                    <i class="fas fa-arrow-left"></i>
-                    <span>Back</span>
-                </button>
-                <h1>Post Comments</h1>
-            </div>
-            
-            <!-- Post Content -->
-            <?php if (isset($post)): ?>
-                <div class="original-post">
-                    <div class="post-header">
-                        <div class="post-author">
-                            <img src="<?= htmlspecialchars($post['profile_pic'] ?? 'images/profile.jpg') ?>" 
-                                 alt="<?= htmlspecialchars($post['username']) ?>" 
-                                 class="author-avatar">
-                            <div class="author-info">
-                                <h3><?= htmlspecialchars($post['username']) ?></h3>
-                                <time><?= date('M j, Y g:i a', strtotime($post['created_at'])) ?></time>
+    <main class="main-container">
+        <div class="container">
+            <div class="comments-card">
+                <!-- Header -->
+                <header class="card-header">
+                    <button class="back-btn" onclick="window.history.back()">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <div class="header-text">
+                        <h1>Comments</h1>
+                        <p><?= count($comments) ?> comment<?= count($comments) !== 1 ? 's' : '' ?></p>
+                    </div>
+                </header>
+
+                <!-- Post Content -->
+                <section class="post-section">
+                    <article class="post-card">
+                        <header class="post-header">
+                            <div class="post-author">
+                                <a href="profile?id=<?= $post['userId'] ?>" class="author-link">
+                                    <div class="profile-photo">
+                                        <img src="<?= htmlspecialchars($post['profile_pic'] ?? 'images/profile.jpg') ?>" 
+                                             alt="Profile Picture"
+                                             onerror="this.src='images/profile.jpg'">
+                                    </div>
+                                    <div class="author-info">
+                                        <h3><?= htmlspecialchars($post['username']) ?></h3>
+                                        <time datetime="<?= $post['created_at'] ?>">
+                                            <?= date('M j, Y \a\t g:i A', strtotime($post['created_at'])) ?>
+                                        </time>
+                                    </div>
+                                </a>
                             </div>
-                        </div>
-                        <div class="post-privacy">
-                            <i class="fas <?= $post['post_public'] ? 'fa-globe' : 'fa-user-friends' ?>"></i>
-                            <span><?= $post['post_public'] ? 'Public' : 'Friends' ?></span>
+                            <div class="post-privacy">
+                                <i class="fas <?= $post['post_public'] ? 'fa-globe' : 'fa-user-friends' ?>"></i>
+                                <span><?= $post['post_public'] ? 'Public' : 'Friends' ?></span>
+                            </div>
+                        </header>
+
+                        <?php if (!empty($post['content'])): ?>
+                            <div class="post-content">
+                                <p><?= nl2br(htmlspecialchars($post['content'])) ?></p>
+                            </div>
+                        <?php endif; ?>
+
+                        <?php if (!empty($post['post_photo'])): ?>
+                            <div class="post-media">
+                                <?php if (preg_match('/\.(mp4|webm|ogg)$/i', $post['post_photo'])): ?>
+                                    <video controls class="post-video">
+                                        <source src="<?= htmlspecialchars($post['post_photo']) ?>">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                <?php else: ?>
+                                    <img src="<?= htmlspecialchars($post['post_photo']) ?>" 
+                                         alt="Post Image" 
+                                         class="post-image"
+                                         onclick="openImageModal('<?= htmlspecialchars($post['post_photo']) ?>')">
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
+
+                        <footer class="post-footer">
+                            <div class="post-stats">
+                                <span class="stat-item">
+                                    <i class="fas fa-heart"></i>
+                                    <span class="like-count"><?= $like_count ?></span> likes
+                                </span>
+                                <span class="stat-item">
+                                    <i class="fas fa-comment"></i>
+                                    <span class="comment-count"><?= count($comments) ?></span> comments
+                                </span>
+                            </div>
+
+                            <div class="post-actions">
+                                <button class="action-btn like-btn <?= $liked ? 'liked' : '' ?>" 
+                                        data-post-id="<?= $post['post_id'] ?>"
+                                        onclick="toggleLike(<?= $post['post_id'] ?>)">
+                                    <i class="<?= $liked ? 'fas' : 'far' ?> fa-heart"></i>
+                                    <span>Like</span>
+                                </button>
+                                <button class="action-btn comment-btn active">
+                                    <i class="fas fa-comment"></i>
+                                    <span>Comment</span>
+                                </button>
+                                <button class="action-btn share-btn">
+                                    <i class="fas fa-share"></i>
+                                    <span>Share</span>
+                                </button>
+                            </div>
+                        </footer>
+                    </article>
+                </section>
+
+                <!-- Comments Section -->
+                <section class="comments-section">
+                    <div class="comments-header">
+                        <h3>Comments</h3>
+                        <div class="sort-options">
+                            <button class="sort-btn active" data-sort="newest">
+                                <i class="fas fa-clock"></i>
+                                Newest
+                            </button>
+                            <button class="sort-btn" data-sort="oldest">
+                                <i class="fas fa-history"></i>
+                                Oldest
+                            </button>
                         </div>
                     </div>
-                    
-                    <?php if (!empty($post['content'])): ?>
-                        <div class="post-content">
-                            <p><?= nl2br(htmlspecialchars($post['content'])) ?></p>
-                        </div>
-                    <?php endif; ?>
-                    
-                    <?php if (!empty($post['post_photo'])): ?>
-                        <div class="post-media">
-                            <?php if (preg_match('/\.(mp4|webm|ogg)$/i', $post['post_photo'])): ?>
-                                <video controls class="post-video">
-                                    <source src="<?= htmlspecialchars($post['post_photo']) ?>">
-                                    Your browser does not support the video tag.
-                                </video>
-                            <?php else: ?>
-                                <img src="<?= htmlspecialchars($post['post_photo']) ?>" 
-                                     alt="Post Image" 
-                                     class="post-image">
-                            <?php endif; ?>
-                        </div>
-                    <?php endif; ?>
-                    
-                    <div class="post-stats">
-                        <div class="stat-item">
-                            <i class="fas fa-heart"></i>
-                            <span><?= $like_count ?> likes</span>
-                        </div>
-                        <div class="stat-item">
-                            <i class="fas fa-comment"></i>
-                            <span><?= $comment_count ?> comments</span>
-                        </div>
-                    </div>
-                </div>
-            <?php endif; ?>
-            
-            <!-- Comments Section -->
-            <div class="comments-section">
-                <div class="comments-header-section">
-                    <h2>Comments (<?= count($comments ?? []) ?>)</h2>
-                    <div class="sort-options">
-                        <select id="sortComments">
-                            <option value="newest">Newest first</option>
-                            <option value="oldest">Oldest first</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <!-- Add Comment Form -->
-                <div class="add-comment-section">
-                    <form class="comment-form" id="mainCommentForm">
-                        <input type="hidden" name="post_id" value="<?= $post_id ?? '' ?>">
-                        <input type="hidden" name="user_id" value="<?= $_SESSION['user_id'] ?>">
-                        <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
-                        
-                        <div class="comment-input-wrapper">
-                            <img src="<?= htmlspecialchars($user['avatar'] ?? 'images/profile.jpg') ?>" 
-                                 alt="Your avatar" 
-                                 class="comment-avatar">
-                            <div class="input-container">
-                                <textarea name="comment" 
-                                         placeholder="Write a comment..." 
-                                         class="comment-textarea"
-                                         rows="1"
-                                         required></textarea>
-                                <div class="comment-actions">
-                                    <button type="button" class="emoji-btn">
-                                        <i class="fas fa-smile"></i>
-                                    </button>
-                                    <button type="submit" class="submit-btn">
-                                        <i class="fas fa-paper-plane"></i>
-                                        <span>Post</span>
-                                    </button>
+
+                    <!-- Add Comment Form -->
+                    <div class="add-comment-section">
+                        <form class="comment-form" onsubmit="submitComment(event)">
+                            <div class="comment-input-container">
+                                <div class="profile-photo">
+                                    <img src="<?= htmlspecialchars($user['avatar'] ?? 'images/profile.jpg') ?>" 
+                                         alt="Your Profile"
+                                         onerror="this.src='images/profile.jpg'">
+                                </div>
+                                <div class="input-wrapper">
+                                    <textarea name="comment" 
+                                              placeholder="Write a comment..." 
+                                              class="comment-input"
+                                              rows="1"
+                                              required></textarea>
+                                    <div class="input-actions">
+                                        <button type="button" class="emoji-btn" title="Add emoji">
+                                            <i class="fas fa-smile"></i>
+                                        </button>
+                                        <button type="submit" class="submit-btn">
+                                            <i class="fas fa-paper-plane"></i>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </form>
-                </div>
-                
-                <!-- Comments List -->
-                <div class="comments-list" id="commentsList">
-                    <?php if (empty($comments)): ?>
-                        <div class="empty-comments">
-                            <div class="empty-icon">
-                                <i class="fas fa-comments"></i>
-                            </div>
-                            <h3>No comments yet</h3>
-                            <p>Be the first to share your thoughts!</p>
-                        </div>
-                    <?php else: ?>
-                        <?php foreach ($comments as $comment): ?>
-                            <div class="comment-item" data-comment-id="<?= $comment['id'] ?>">
-                                <div class="comment-avatar-container">
-                                    <img src="<?= htmlspecialchars($comment['avatar'] ?? 'images/profile.jpg') ?>" 
-                                         alt="<?= htmlspecialchars($comment['firstName'] . ' ' . $comment['lastName']) ?>" 
-                                         class="comment-avatar">
+                            <input type="hidden" name="post_id" value="<?= $post['post_id'] ?>">
+                            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                        </form>
+                    </div>
+
+                    <!-- Comments List -->
+                    <div class="comments-list" id="commentsList">
+                        <?php if (empty($comments)): ?>
+                            <div class="empty-comments">
+                                <div class="empty-icon">
+                                    <i class="fas fa-comment-slash"></i>
                                 </div>
-                                
-                                <div class="comment-content">
-                                    <div class="comment-bubble">
-                                        <div class="comment-header">
-                                            <h4 class="commenter-name">
-                                                <?= htmlspecialchars($comment['firstName'] . ' ' . $comment['lastName']) ?>
-                                            </h4>
-                                            <time class="comment-time">
-                                                <?= date('M j, Y g:i a', strtotime($comment['created_at'])) ?>
-                                            </time>
+                                <h3>No comments yet</h3>
+                                <p>Be the first to comment on this post</p>
+                            </div>
+                        <?php else: ?>
+                            <?php foreach ($comments as $comment): ?>
+                                <div class="comment-item" data-comment-id="<?= $comment['id'] ?>">
+                                    <div class="comment-avatar">
+                                        <a href="profile?id=<?= $comment['userId'] ?>">
+                                            <img src="<?= htmlspecialchars($comment['avatar'] ?? 'images/profile.jpg') ?>" 
+                                                 alt="Profile Picture"
+                                                 onerror="this.src='images/profile.jpg'">
+                                        </a>
+                                    </div>
+                                    <div class="comment-content">
+                                        <div class="comment-bubble">
+                                            <div class="comment-header">
+                                                <a href="profile?id=<?= $comment['userId'] ?>" class="commenter-name">
+                                                    <?= htmlspecialchars($comment['username']) ?>
+                                                </a>
+                                                <time class="comment-time" datetime="<?= $comment['created_at'] ?>">
+                                                    <?= formatTimeAgo($comment['created_at']) ?>
+                                                </time>
+                                            </div>
+                                            <div class="comment-text">
+                                                <p><?= nl2br(htmlspecialchars($comment['content'])) ?></p>
+                                            </div>
                                         </div>
-                                        <p class="comment-text">
-                                            <?= nl2br(htmlspecialchars($comment['content'])) ?>
-                                        </p>
-                                    </div>
-                                    
-                                    <div class="comment-actions">
-                                        <button class="action-btn like-comment-btn" data-comment-id="<?= $comment['id'] ?>">
-                                            <i class="far fa-heart"></i>
-                                            <span>Like</span>
-                                        </button>
-                                        <button class="action-btn reply-btn" data-comment-id="<?= $comment['id'] ?>">
-                                            <i class="fas fa-reply"></i>
-                                            <span>Reply</span>
-                                        </button>
-                                        <?php if ($comment['userId'] == $_SESSION['user_id']): ?>
-                                            <button class="action-btn delete-btn" data-comment-id="<?= $comment['id'] ?>">
-                                                <i class="fas fa-trash"></i>
-                                                <span>Delete</span>
+                                        <div class="comment-actions">
+                                            <button class="comment-action-btn like-comment-btn" 
+                                                    data-comment-id="<?= $comment['id'] ?>">
+                                                <i class="far fa-heart"></i>
+                                                <span>Like</span>
                                             </button>
-                                        <?php endif; ?>
+                                            <button class="comment-action-btn reply-btn" 
+                                                    data-comment-id="<?= $comment['id'] ?>">
+                                                <i class="fas fa-reply"></i>
+                                                <span>Reply</span>
+                                            </button>
+                                            <?php if ($comment['userId'] == $_SESSION['user_id']): ?>
+                                                <button class="comment-action-btn delete-btn" 
+                                                        data-comment-id="<?= $comment['id'] ?>"
+                                                        onclick="deleteComment(<?= $comment['id'] ?>)">
+                                                    <i class="fas fa-trash"></i>
+                                                    <span>Delete</span>
+                                                </button>
+                                            <?php endif; ?>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </div>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </div>
+                </section>
             </div>
         </div>
+    </main>
+
+    <!-- Image Modal -->
+    <div id="imageModal" class="image-modal" style="display: none;" onclick="closeImageModal()">
+        <div class="image-container">
+            <img id="modalImage" src="" alt="Full Size Image">
+            <button class="close-modal" onclick="closeImageModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
     </div>
-    
-    <!-- Toast for notifications -->
-    <div id="toast" class="toast"></div>
-    
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+
     <script>
-        const postId = <?= $post_id ?? 'null' ?>;
-        const currentUserId = <?= $_SESSION['user_id'] ?>;
-        const csrfToken = "<?= $_SESSION['csrf_token'] ?>";
+        // Pass PHP data to JavaScript
+        window.postId = <?= $post['post_id'] ?>;
+        window.currentUserId = <?= $_SESSION['user_id'] ?>;
+        window.csrfToken = '<?= $_SESSION['csrf_token'] ?>';
     </script>
 </body>
 </html>
+
+<?php
+/**
+ * Helper function to format time ago
+ */
+function formatTimeAgo($dateString) {
+    $date = new DateTime($dateString);
+    $now = new DateTime();
+    $diff = $now->diff($date);
+    
+    if ($diff->days > 7) {
+        return $date->format('M j, Y');
+    } elseif ($diff->days > 0) {
+        return $diff->days . 'd ago';
+    } elseif ($diff->h > 0) {
+        return $diff->h . 'h ago';
+    } elseif ($diff->i > 0) {
+        return $diff->i . 'm ago';
+    } else {
+        return 'Just now';
+    }
+}
+?>
