@@ -71,6 +71,7 @@
                             <?php else: ?>
                                 <div class="notifications-list" id="notificationsList">
                                     <?php foreach ($notifications as $notification): ?>
+                                        <?php if (strpos($notification['message'], 'system') === false): ?>
                                         <div class="notification-item <?= $notification['status'] === 'unread' ? 'unread' : '' ?>" 
                                              data-id="<?= $notification['id'] ?>"
                                              data-type="<?= getNotificationType($notification['message']) ?>">
@@ -124,6 +125,7 @@
                                                 </button>
                                             </div>
                                         </div>
+                                        <?php endif; ?>
                                     <?php endforeach; ?>
                                 </div>
                             <?php endif; ?>

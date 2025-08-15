@@ -133,7 +133,6 @@ class PagesController {
         
         // Get user data including profile information
         $user = $queryBuilder->getUserFullData($user_id);
-        $csrf_token = $_SESSION['csrf_token'];
         
         require_once 'view/edit-profile.view.php';
     }
@@ -706,6 +705,115 @@ class PagesController {
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }
+    }
+    
+    // API endpoints for real-time functionality
+    public function apiNotificationCounts() {
+        header('Content-Type: application/json');
+        
+        if (!isset($_SESSION['user_id'])) {
+            echo json_encode(['error' => 'Not authenticated']);
+            exit();
+        }
+        
+        $queryBuilder = new queryBuilder();
+        $user_id = $_SESSION['user_id'];
+        
+        $noti_count = $queryBuilder->getUnreadNotificationsCount($user_id);
+        $unread_count = $queryBuilder->getUnreadMessagesCount($user_id);
+        
+        echo json_encode([
+            'notification_count' => $noti_count,
+            'message_count' => $unread_count
+        ]);
+        exit();
+    }
+    
+    public function apiCommentCounts() {
+        header('Content-Type: application/json');
+        
+        if (!isset($_SESSION['user_id'])) {
+            echo json_encode(['error' => 'Not authenticated']);
+            exit();
+        }
+        
+        $queryBuilder = new queryBuilder();
+        $user_id = $_SESSION['user_id'];
+        
+        // Get all posts for the user
+        $posts = $queryBuilder->getPosts($user_id);
+        $commentCounts = [];
+        
+        foreach ($posts as $post) {
+            $commentCounts[$post['id']] = $queryBuilder->getCommentsCountForPost($post['id']);
+        }
+        
+        echo json_encode(['commentCounts' => $commentCounts]);
+        exit();
+    }
+    
+    public function deleteNotification() {
+        header('Content-Type: application/json');
+        
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_SESSION['user_id'])) {
+            echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+            exit();
+        }
+        
+        try {
+            $input = json_decode(file_get_contents('php://input'), true);
+            $notificationId = $input['notification_id'] ?? 0;
+            
+            if (!$notificationId) {
+                throw new Exception('Invalid notification ID');
+            }
+            
+            $queryBuilder = new queryBuilder();
+            $result = $queryBuilder->deleteNotification($notificationId, $_SESSION['user_id']);
+            
+            if ($result) {
+                echo json_encode(['success' => true, 'message' => 'Notification deleted']);
+            } else {
+                throw new Exception('Failed to delete notification');
+            }
+            
+        } catch (Exception $e) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+        exit();
+    }
+    
+    public function markNotificationRead() {
+        header('Content-Type: application/json');
+        
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_SESSION['user_id'])) {
+            echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+            exit();
+        }
+        
+        try {
+            $input = json_decode(file_get_contents('php://input'), true);
+            $notificationId = $input['notification_id'] ?? 0;
+            
+            if (!$notificationId) {
+                throw new Exception('Invalid notification ID');
+            }
+            
+            $queryBuilder = new queryBuilder();
+            $result = $queryBuilder->markNotificationAsRead($notificationId, $_SESSION['user_id']);
+            
+            if ($result) {
+                echo json_encode(['success' => true, 'message' => 'Notification marked as read']);
+            } else {
+                throw new Exception('Failed to mark notification as read');
+            }
+            
+        } catch (Exception $e) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+        exit();
     }
 }
 ?>

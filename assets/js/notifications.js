@@ -345,7 +345,7 @@ async function deleteNotification(notificationId) {
             
             showToast('success', 'Notification deleted');
         } else {
-            showToast('error', 'Failed to delete notification');
+            showToast('error', data.error || 'Failed to delete notification');
         }
     } catch (error) {
         console.error('Delete notification error:', error);
@@ -369,7 +369,9 @@ async function markNotificationAsRead(notificationId) {
             })
         });
         
-        if (response.ok) {
+        const data = await response.json();
+        
+        if (data.success) {
             // Update UI
             const notificationElement = document.querySelector(`[data-id="${notificationId}"]`);
             if (notificationElement) {
@@ -389,6 +391,8 @@ async function markNotificationAsRead(notificationId) {
                 
                 updateTabCounts();
             }
+        } else {
+            console.error('Failed to mark as read:', data.error);
         }
     } catch (error) {
         console.error('Mark as read error:', error);

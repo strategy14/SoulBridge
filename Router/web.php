@@ -15,7 +15,7 @@ return $routes = [
         '/api/notification-counts' => 'PagesController@apiNotificationCounts',
         '/api/new-posts-count' => 'PagesController@apiNewPostsCount',
         '/api/posts/like-counts' => 'PagesController@apiLikeCounts',
-        '/api/posts/comment-counts' => 'PagesController@apiCommentCounts'
+        '/api/posts/comment-counts' => 'PagesController@apiCommentCounts',
         '/comments' => 'PagesController@comment'
         
     ],
@@ -30,6 +30,8 @@ return $routes = [
         '/friendRequest' => 'PagesController@friendRequest',
         '/story-upload' => 'PagesController@storyUpload',
         '/update-profile' => 'PagesController@updateProfile',
-        '/upload-avatar' => 'PagesController@uploadAvatar'
+        '/upload-avatar' => 'PagesController@uploadAvatar',
+        '/api/notifications/delete' => 'PagesController@deleteNotification',
+        '/api/notifications/mark-read' => 'PagesController@markNotificationRead'
     ]
 ];
