@@ -8,6 +8,8 @@
     margin-bottom: 20px;
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-color) transparent;
 }
 
 .stories::-webkit-scrollbar {
@@ -179,6 +181,11 @@
     border: 2px solid white;
 }
 
+.story-user-details {
+    display: flex;
+    flex-direction: column;
+}
+
 .story-username {
     font-weight: 600;
     font-size: 15px;
@@ -187,7 +194,6 @@
 .story-time {
     font-size: 13px;
     opacity: 0.8;
-    margin-left: auto;
 }
 
 .story-close-btn {
@@ -265,6 +271,33 @@
 
 .story-next-btn {
     right: 16px;
+}
+
+.story-actions {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 12px;
+}
+
+.story-action-btn {
+    width: 44px;
+    height: 44px;
+    background: rgba(0, 0, 0, 0.5);
+    border: none;
+    border-radius: 50%;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.story-action-btn:hover {
+    background: rgba(0, 0, 0, 0.7);
 }
 
 .story-error {

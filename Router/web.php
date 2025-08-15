@@ -30,6 +30,8 @@ return $routes = [
         '/friendRequest' => 'PagesController@friendRequest',
         '/story-upload' => 'PagesController@storyUpload',
         '/update-profile' => 'PagesController@updateProfile',
-        '/upload-avatar' => 'PagesController@uploadAvatar'
+        '/upload-avatar' => 'PagesController@uploadAvatar',
+        '/api/notifications/delete' => 'PagesController@deleteNotification',
+        '/api/notifications/mark-read' => 'PagesController@markNotificationRead'
     ]
 ];

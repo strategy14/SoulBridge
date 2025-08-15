@@ -151,7 +151,7 @@ async function checkForNewPosts() {
     if (!feedContainer) return;
     
     try {
-        const response = await fetch(`/api/new-posts?since=${lastUpdateTime}`, {
+        const response = await fetch(`/api/new-posts-count?since=${lastUpdateTime}`, {
             headers: {
                 'X-CSRF-Token': window.csrfToken || ''
             }
@@ -160,8 +160,8 @@ async function checkForNewPosts() {
         if (response.ok) {
             const data = await response.json();
             
-            if (data.newPosts && data.newPosts.length > 0) {
-                showNewPostsIndicator(data.newPosts.length);
+            if (data.newPosts && data.newPosts > 0) {
+                showNewPostsIndicator(data.newPosts);
                 lastUpdateTime = Date.now();
             }
         }

@@ -43,7 +43,7 @@
                              class="profile-avatar-large"
                              onerror="this.src='images/profile.jpg'">
                         <?php if ($profile_user_id == $current_user_id): ?>
-                            <button class="edit-avatar-btn">
+                            <button class="edit-avatar-btn" onclick="windows.location.href='/edit-profile'">
                                 <i class="fas fa-camera"></i>
                             </button>
                         <?php endif; ?>

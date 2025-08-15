@@ -71,6 +71,7 @@
                             <?php else: ?>
                                 <div class="notifications-list" id="notificationsList">
                                     <?php foreach ($notifications as $notification): ?>
+                                        <?php if (strpos($notification['message'], 'system') === false): ?>
                                         <div class="notification-item <?= $notification['status'] === 'unread' ? 'unread' : '' ?>" 
                                              data-id="<?= $notification['id'] ?>"
                                              data-type="<?= getNotificationType($notification['message']) ?>">
@@ -112,7 +113,7 @@
                                                     </button>
                                                 <?php else: ?>
                                                     <button class="action-btn view-btn" 
-                                                            onclick="viewNotification(<?= $notification['id'] ?>, '<?= $notification['post_id'] ? 'comments?post_id=' . $notification['post_id'] : 'profile?id=' . $notification['fromUserId'] ?>')"
+                                                            onclick="viewNotification(<?= $notification['id'] ?>, '<?= $notification['postId'] ? 'comments?post_id=' . $notification['postId'] : 'profile?id=' . $notification['fromUserId'] ?>')"
                                                             title="View">
                                                         <i class="fas fa-eye"></i>
                                                     </button>
@@ -124,6 +125,7 @@
                                                 </button>
                                             </div>
                                         </div>
+                                        <?php endif; ?>
                                     <?php endforeach; ?>
                                 </div>
                             <?php endif; ?>

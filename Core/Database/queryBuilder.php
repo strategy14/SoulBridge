@@ -751,6 +751,202 @@ public function getLastMessageForUser($current_user_id){
     return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
+    // Enhanced methods for edit profile functionality
+    public function getUserFullData($userId) {
+        $sql = "SELECT 
+                    u.id,
+                    u.firstName, 
+                    u.lastName, 
+                    u.email,
+                    u.birthdate,
+                    u.gender,
+                    p.avatar, 
+                    p.bio,
+                    p.location,
+                    p.coverPhoto
+                FROM users u
+                LEFT JOIN profiles p ON u.id = p.id 
+                WHERE u.id = :userId";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute(['userId' => $userId]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+    
+    public function verifyCurrentPassword($userId, $password) {
+        $sql = "SELECT password FROM users WHERE id = :userId";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute(['userId' => $userId]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($user) {
+            return password_verify($password, $user['password']);
+        }
+        return false;
+    }
+    
+    public function isEmailTaken($email, $excludeUserId) {
+        $sql = "SELECT id FROM users WHERE email = :email AND id != :excludeUserId";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute(['email' => $email, 'excludeUserId' => $excludeUserId]);
+        return $stmt->fetch(PDO::FETCH_ASSOC) !== false;
+    }
+    
+    public function updateUserProfile($userId, $userData, $profileData) {
+        $this->pdo->beginTransaction();
+        
+        try {
+            // Update users table
+            $userFields = [];
+            $userParams = ['userId' => $userId];
+            
+            foreach ($userData as $key => $value) {
+                if ($value !== null && $value !== '') {
+                    $userFields[] = "$key = :$key";
+                    $userParams[$key] = $value;
+                }
+            }
+            
+            if (!empty($userFields)) {
+                $sql = "UPDATE users SET " . implode(', ', $userFields) . " WHERE id = :userId";
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->execute($userParams);
+            }
+            
+            // Update or insert profile data
+            $profileFields = [];
+            $profileParams = ['userId' => $userId];
+            
+            foreach ($profileData as $key => $value) {
+                $profileFields[] = "$key = :$key";
+                $profileParams[$key] = $value;
+            }
+            
+            if (!empty($profileFields)) {
+                // Check if profile exists
+                $checkSql = "SELECT id FROM profiles WHERE id = :userId";
+                $checkStmt = $this->pdo->prepare($checkSql);
+                $checkStmt->execute(['userId' => $userId]);
+                
+                if ($checkStmt->fetch()) {
+                    // Update existing profile
+                    $sql = "UPDATE profiles SET " . implode(', ', $profileFields) . " WHERE id = :userId";
+                } else {
+                    // Insert new profile
+                    $profileParams['id'] = $userId;
+                    $fields = array_keys($profileParams);
+                    $placeholders = ':' . implode(', :', $fields);
+                    $sql = "INSERT INTO profiles (" . implode(', ', $fields) . ") VALUES ($placeholders)";
+                }
+                
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->execute($profileParams);
+            }
+            
+            $this->pdo->commit();
+            return true;
+            
+        } catch (PDOException $e) {
+            $this->pdo->rollBack();
+            error_log("Profile update error: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    public function updateUserAvatar($userId, $avatarPath) {
+        // Check if profile exists
+        $checkSql = "SELECT id FROM profiles WHERE id = :userId";
+        $checkStmt = $this->pdo->prepare($checkSql);
+        $checkStmt->execute(['userId' => $userId]);
+        
+        if ($checkStmt->fetch()) {
+            // Update existing profile
+            $sql = "UPDATE profiles SET avatar = :avatar WHERE id = :userId";
+        } else {
+            // Insert new profile
+            $sql = "INSERT INTO profiles (id, avatar) VALUES (:userId, :avatar)";
+        }
+        
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute(['userId' => $userId, 'avatar' => $avatarPath]);
+    }
+    
+    // Enhanced notification methods
+    public function getNewPostsCount($userId, $since) {
+        $sinceDate = date('Y-m-d H:i:s', $since / 1000);
+        
+        $sql = "SELECT COUNT(*) AS new_count
+                FROM posts p
+                LEFT JOIN friends f ON 
+                    (f.userId = :userId1 AND f.friendId = p.userId AND f.status = 'accepted')
+                    OR 
+                    (f.friendId = :userId2 AND f.userId = p.userId AND f.status = 'accepted')
+                WHERE 
+                    (p.isPublic = 1 OR f.userId IS NOT NULL OR p.userId = :userId3)
+                    AND p.created_at > :since
+                    AND p.userId != :userId4";
+        
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([
+            'userId1' => $userId,
+            'userId2' => $userId,
+            'userId3' => $userId,
+            'userId4' => $userId,
+            'since' => $sinceDate
+        ]);
+        
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $result ? $result['new_count'] : 0;
+    }
+    
+    public function deleteNotification($notificationId, $userId) {
+        $sql = "DELETE FROM notifications WHERE id = :id AND toUserId = :userId";
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute(['id' => $notificationId, 'userId' => $userId]);
+    }
+    
+    public function markNotificationAsRead($notificationId, $userId) {
+        $sql = "UPDATE notifications SET status = 'read' WHERE id = :id AND toUserId = :userId";
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute(['id' => $notificationId, 'userId' => $userId]);
+    }
+    
+    public function getNotificationsExcludingSystem($userId) {
+        $sql = "SELECT n.*, u.firstName, u.lastName, p.avatar
+                FROM notifications n
+                JOIN users u ON n.fromUserId = u.id
+                LEFT JOIN profiles p ON u.id = p.id
+                WHERE n.toUserId = :userId 
+                AND n.message NOT LIKE '%system%'
+                ORDER BY n.created_at DESC";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute(['userId' => $userId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
+    // Enhanced story methods
+    public function getStoriesWithUserData() {
+        $sql = "SELECT s.*, u.firstName, u.lastName, p.avatar 
+                FROM stories s
+                JOIN users u ON s.userId = u.id
+                LEFT JOIN profiles p ON u.id = p.id
+                WHERE s.expires_at > NOW()
+                ORDER BY s.created_at DESC";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
+    public function getStoryById($storyId) {
+        $sql = "SELECT s.*, u.firstName, u.lastName, p.avatar 
+                FROM stories s
+                JOIN users u ON s.userId = u.id
+                LEFT JOIN profiles p ON u.id = p.id
+                WHERE s.id = :storyId AND s.expires_at > NOW()";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute(['storyId' => $storyId]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
 
 
 
