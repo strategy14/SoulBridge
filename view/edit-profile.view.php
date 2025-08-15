@@ -177,7 +177,8 @@
                                     <input type="password" 
                                            id="currentPassword" 
                                            name="currentPassword" 
-                                           placeholder="Enter current password to save changes">
+                                           placeholder="Enter current password to save changes"
+                                           required>
                                     <button type="button" class="password-toggle" onclick="togglePassword('currentPassword')">
                                         <i class="fas fa-eye"></i>
                                     </button>
@@ -225,7 +226,7 @@
                             </div>
                         </div>
 
-                        <input type="hidden" name="csrf_token" value="<?= $csrf_token ?>">
+                        <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
 
                         <div class="form-actions">
                             <button type="button" class="btn btn-secondary" onclick="window.history.back()">
@@ -256,7 +257,7 @@
 
     <script>
         // Pass PHP data to JavaScript
-        window.csrfToken = '<?= $csrf_token ?>';
+        window.csrfToken = '<?= $_SESSION['csrf_token'] ?>';
         window.currentUser = <?= json_encode($user) ?>;
     </script>
 </body>

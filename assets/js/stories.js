@@ -1,4 +1,8 @@
-// Story functionality
+/**
+ * Story Viewer JavaScript
+ * Handles story viewing, navigation, and upload functionality
+ */
+
 class StoryViewer {
     constructor() {
         this.currentStoryIndex = 0;
@@ -7,6 +11,7 @@ class StoryViewer {
         this.progressBar = null;
         this.timer = null;
         this.storyDuration = 5000; // 5 seconds per story
+        this.isPlaying = false;
         
         this.init();
     }
@@ -14,13 +19,14 @@ class StoryViewer {
     init() {
         this.bindEvents();
         this.createModal();
+        this.loadStoriesData();
     }
     
     bindEvents() {
         // Story click events
         document.addEventListener('click', (e) => {
             const storyElement = e.target.closest('.story[data-story-id]');
-            if (storyElement) {
+            if (storyElement && !storyElement.classList.contains('add-story')) {
                 e.preventDefault();
                 const storyId = storyElement.dataset.storyId;
                 this.openStory(storyId);
@@ -40,6 +46,10 @@ class StoryViewer {
                     case 'ArrowRight':
                         this.nextStory();
                         break;
+                    case ' ':
+                        e.preventDefault();
+                        this.togglePlayPause();
+                        break;
                 }
             }
         });
@@ -56,8 +66,10 @@ class StoryViewer {
                     </div>
                     <div class="story-user-info">
                         <img src="" alt="User" class="story-user-avatar">
-                        <span class="story-username"></span>
-                        <span class="story-time"></span>
+                        <div class="story-user-details">
+                            <span class="story-username"></span>
+                            <span class="story-time"></span>
+                        </div>
                     </div>
                     <button class="story-close-btn">
                         <i class="fas fa-times"></i>
@@ -72,6 +84,11 @@ class StoryViewer {
                     </div>
                     <button class="story-nav-btn story-next-btn">
                         <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+                <div class="story-actions">
+                    <button class="story-action-btn" onclick="this.parentElement.parentElement.parentElement.querySelector('.story-close-btn').click()">
+                        <i class="fas fa-pause"></i>
                     </button>
                 </div>
             </div>
@@ -94,16 +111,21 @@ class StoryViewer {
         this.progressBar = this.modal.querySelector('.story-progress-bar');
     }
     
+    loadStoriesData() {
+        const storyElements = document.querySelectorAll('.story[data-story-id]');
+        this.stories = Array.from(storyElements).map(element => ({
+            id: element.dataset.storyId,
+            element: element,
+            media: element.dataset.media,
+            mediaType: element.dataset.mediaType,
+            author: element.dataset.author,
+            avatar: element.dataset.avatar,
+            createdAt: element.dataset.createdAt
+        }));
+    }
+    
     async openStory(storyId) {
         try {
-            // Fetch story data
-            const response = await fetch(`/api/story/${storyId}`);
-            if (!response.ok) {
-                throw new Error('Failed to load story');
-            }
-            
-            const storyData = await response.json();
-            this.stories = storyData.stories || [storyData];
             this.currentStoryIndex = this.stories.findIndex(s => s.id == storyId);
             
             if (this.currentStoryIndex === -1) {
@@ -131,8 +153,8 @@ class StoryViewer {
         
         // Update user info
         userAvatar.src = story.avatar || 'images/profile.jpg';
-        username.textContent = `${story.firstName} ${story.lastName}`;
-        storyTime.textContent = this.formatTime(story.created_at);
+        username.textContent = story.author;
+        storyTime.textContent = this.formatTime(story.createdAt);
         
         // Clear previous media
         mediaContainer.innerHTML = '';
@@ -175,11 +197,14 @@ class StoryViewer {
     startProgress() {
         this.clearTimer();
         this.progressBar.style.width = '0%';
+        this.isPlaying = true;
         
         let progress = 0;
         const increment = 100 / (this.storyDuration / 50);
         
         this.timer = setInterval(() => {
+            if (!this.isPlaying) return;
+            
             progress += increment;
             this.progressBar.style.width = `${Math.min(progress, 100)}%`;
             
@@ -193,6 +218,17 @@ class StoryViewer {
         if (this.timer) {
             clearInterval(this.timer);
             this.timer = null;
+        }
+    }
+    
+    togglePlayPause() {
+        this.isPlaying = !this.isPlaying;
+        const actionBtn = this.modal.querySelector('.story-action-btn i');
+        
+        if (this.isPlaying) {
+            actionBtn.className = 'fas fa-pause';
+        } else {
+            actionBtn.className = 'fas fa-play';
         }
     }
     
@@ -220,8 +256,7 @@ class StoryViewer {
         this.clearTimer();
         this.modal.style.display = 'none';
         document.body.style.overflow = '';
-        this.stories = [];
-        this.currentStoryIndex = 0;
+        this.isPlaying = false;
     }
     
     showErrorMessage(message) {
@@ -249,9 +284,34 @@ class StoryViewer {
     }
 }
 
+// Global functions for story functionality
+function openStoryViewer(storyId) {
+    if (window.storyViewer) {
+        window.storyViewer.openStory(storyId);
+    }
+}
+
+function closeStoryViewer() {
+    if (window.storyViewer) {
+        window.storyViewer.closeStory();
+    }
+}
+
+function nextStory() {
+    if (window.storyViewer) {
+        window.storyViewer.nextStory();
+    }
+}
+
+function previousStory() {
+    if (window.storyViewer) {
+        window.storyViewer.previousStory();
+    }
+}
+
 // Initialize story viewer when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    new StoryViewer();
+    window.storyViewer = new StoryViewer();
 });
 
 // Story upload functionality
@@ -261,6 +321,17 @@ function initializeStoryUpload() {
         storyUploadInput.addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (file) {
+                // Validate file type and size
+                if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+                    alert('Please select an image or video file');
+                    return;
+                }
+                
+                if (file.size > 20 * 1024 * 1024) { // 20MB limit
+                    alert('File size must be less than 20MB');
+                    return;
+                }
+                
                 // Show preview before upload
                 const reader = new FileReader();
                 reader.onload = function(e) {
@@ -297,20 +368,24 @@ function showStoryPreview(src, type) {
     `;
     
     document.body.appendChild(modal);
+    document.body.style.overflow = 'hidden';
     
     // Bind events
     modal.querySelector('.close-preview').addEventListener('click', () => {
         document.body.removeChild(modal);
+        document.body.style.overflow = 'auto';
     });
     
     modal.querySelector('.btn-cancel').addEventListener('click', () => {
         document.body.removeChild(modal);
+        document.body.style.overflow = 'auto';
     });
     
     modal.querySelector('.btn-share').addEventListener('click', () => {
         // Submit the form
-        document.querySelector('form[action="story-upload"]').submit();
+        document.querySelector('form[action="/story-upload"]').submit();
         document.body.removeChild(modal);
+        document.body.style.overflow = 'auto';
     });
 }
 

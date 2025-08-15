@@ -21,7 +21,7 @@
             <!-- Left Sidebar -->
             <aside class="left-sidebar">
                 <div class="profile-card">
-                    <a href="profile" class="profile-link">
+                    <a href="/profile" class="profile-link">
                         <div class="profile-photo">
                             <img src="<?= htmlspecialchars($data['user']['avatar'] ?? 'images/profile.jpg') ?>" 
                                  alt="Profile Picture"
@@ -35,29 +35,33 @@
                 </div>
 
                 <nav class="sidebar-nav">
-                    <a href="home" class="nav-item active">
+                    <a href="/home" class="nav-item active">
                         <i class="fas fa-home"></i>
                         <span>Home</span>
                     </a>
-                    <a href="notification" class="nav-item" id="notifications-link">
+                    <a href="/notification" class="nav-item" id="notifications-link">
                         <i class="fas fa-bell"></i>
                         <span>Notifications</span>
                         <?php if($data['noti_count'] > 0): ?>
                             <span class="notification-badge" id="notification-count"><?= $data['noti_count'] ?></span>
                         <?php endif; ?>
                     </a>
-                    <a href="message" class="nav-item" id="messages-link">
+                    <a href="/message" class="nav-item" id="messages-link">
                         <i class="fas fa-envelope"></i>
                         <span>Messages</span>
                         <?php if ($data['unread_count'] > 0): ?>
                             <span class="notification-badge" id="message-count"><?= $data['unread_count'] ?></span>
                         <?php endif; ?>
                     </a>
-                    <a href="search" class="nav-item">
+                    <a href="/search" class="nav-item">
                         <i class="fas fa-search"></i>
                         <span>Search</span>
                     </a>
-                    <a href="logout" class="nav-item logout">
+                    <a href="/edit-profile" class="nav-item">
+                        <i class="fas fa-edit"></i>
+                        <span>Edit Profile</span>
+                    </a>
+                    <a href="/logout" class="nav-item logout">
                         <i class="fas fa-sign-out-alt"></i>
                         <span>Logout</span>
                     </a>
@@ -105,14 +109,14 @@
                 </section>
 
                 <!-- Hidden Story Upload Form -->
-                <form action="story-upload" method="POST" enctype="multipart/form-data" style="display: none;">
+                <form action="/story-upload" method="POST" enctype="multipart/form-data" style="display: none;">
                     <input type="file" id="storyUpload" name="story_media" accept="image/*,video/*" onchange="this.form.submit()">
                     <input type="hidden" name="csrf_token" value="<?= $data['csrf_token'] ?>">
                 </form>
 
                 <!-- Create Post Section -->
                 <section class="create-post-section">
-                    <form action="post-create" method="POST" enctype="multipart/form-data" class="create-post-form">
+                    <form action="/post-create" method="POST" enctype="multipart/form-data" class="create-post-form">
                         <div class="post-header">
                             <div class="profile-photo">
                                 <img src="<?= htmlspecialchars($data['user']['avatar'] ?? 'images/profile.jpg') ?>" 
@@ -132,8 +136,8 @@
                                 <label class="privacy-toggle">
                                     <input type="checkbox" name="is_public" value="1" id="privacy-checkbox">
                                     <span class="toggle-slider"></span>
-                                    <i class="fas fa-globe privacy-icon"></i>
-                                    <span class="privacy-text">Public</span>
+                                    <i class="fas fa-user-friends privacy-icon"></i>
+                                    <span class="privacy-text">Friends</span>
                                 </label>
                             </div>
                             
@@ -180,7 +184,7 @@
                             <article class="post-card" data-post-id="<?= $post['post_id'] ?>">
                                 <header class="post-header">
                                     <div class="post-author">
-                                        <a href="profile?id=<?= $post['userId'] ?>" class="author-link">
+                                        <a href="/profile?id=<?= $post['userId'] ?>" class="author-link">
                                             <div class="profile-photo">
                                                 <img src="<?= htmlspecialchars($post['profile_pic'] ?? 'images/profile.jpg') ?>" 
                                                      alt="Profile Picture"
@@ -189,7 +193,7 @@
                                             <div class="author-info">
                                                 <h4><?= htmlspecialchars($post['username']) ?></h4>
                                                 <time datetime="<?= $post['created_at'] ?>">
-                                                    <?= date('M j, Y \a\t g:i A', strtotime($post['created_at'])) ?>
+                                                    <?= formatTimeAgo($post['created_at']) ?>
                                                 </time>
                                             </div>
                                         </a>
@@ -247,11 +251,12 @@
                                             <span>Like</span>
                                         </button>
                                         <button class="action-btn comment-btn" 
-                                                onclick="window.location.href='comments?post_id=<?= $post['post_id'] ?>'">
+                                                onclick="window.location.href='/comments?post_id=<?= $post['post_id'] ?>'">
                                             <i class="far fa-comment"></i>
                                             <span>Comment</span>
                                         </button>
-                                        <button class="action-btn share-btn">
+                                        <button class="action-btn share-btn" 
+                                                data-post-id="<?= $post['post_id'] ?>">
                                             <i class="fas fa-share"></i>
                                             <span>Share</span>
                                         </button>
@@ -273,6 +278,8 @@
                                             <button type="submit" class="comment-submit">
                                                 <i class="fas fa-paper-plane"></i>
                                             </button>
+                                            <input type="hidden" name="post_id" value="<?= $post['post_id'] ?>">
+                                            <input type="hidden" name="csrf_token" value="<?= $data['csrf_token'] ?>">
                                         </form>
                                     </div>
                                 </footer>
@@ -360,28 +367,67 @@
                 <div class="story-progress">
                     <div class="progress-bar" id="storyProgress"></div>
                 </div>
-                <button class="close-story" onclick="closeStoryViewer()">
+                <div class="story-user-info">
+                    <img id="storyAuthorAvatar" src="" alt="Author" class="story-user-avatar">
+                    <span id="storyAuthorName" class="story-username"></span>
+                    <span id="storyTime" class="story-time"></span>
+                </div>
+                <button class="story-close-btn" onclick="closeStoryViewer()">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             <div class="story-content">
-                <div class="story-media" id="storyMedia"></div>
-                <div class="story-info">
-                    <div class="profile-photo">
-                        <img id="storyAuthorAvatar" src="" alt="Author">
-                    </div>
-                    <div class="story-details">
-                        <h4 id="storyAuthorName"></h4>
-                        <time id="storyTime"></time>
-                    </div>
-                </div>
-            </div>
-            <div class="story-navigation">
-                <button class="nav-btn prev-btn" onclick="previousStory()">
+                <button class="story-nav-btn story-prev-btn" onclick="previousStory()">
                     <i class="fas fa-chevron-left"></i>
                 </button>
-                <button class="nav-btn next-btn" onclick="nextStory()">
+                <div class="story-media" id="storyMedia"></div>
+                <button class="story-nav-btn story-next-btn" onclick="nextStory()">
                     <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Share Modal -->
+    <div id="shareModal" class="share-modal" style="display: none;">
+        <div class="share-content">
+            <div class="share-header">
+                <h3>Share Post</h3>
+                <button class="close-btn" onclick="closeShareModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="share-options">
+                <button class="share-option" onclick="copyPostLink()">
+                    <i class="fas fa-link"></i>
+                    <span>Copy Link</span>
+                </button>
+                <button class="share-option" onclick="shareToFriends()">
+                    <i class="fas fa-user-friends"></i>
+                    <span>Share to Friends</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Share Modal -->
+    <div id="shareModal" class="share-modal" style="display: none;">
+        <div class="share-modal-backdrop" onclick="closeShareModal()"></div>
+        <div class="share-content">
+            <div class="share-header">
+                <h3>Share Post</h3>
+                <button class="close-share-btn" onclick="closeShareModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="share-options">
+                <button class="share-option" onclick="copyPostLink()">
+                    <i class="fas fa-link"></i>
+                    <span>Copy Link</span>
+                </button>
+                <button class="share-option" onclick="shareToFriends()">
+                    <i class="fas fa-user-friends"></i>
+                    <span>Share to Friends</span>
                 </button>
             </div>
         </div>
@@ -404,6 +450,30 @@
         // Pass PHP data to JavaScript
         window.userData = <?= json_encode($data['user']) ?>;
         window.csrfToken = '<?= $data['csrf_token'] ?>';
+        window.currentUserId = <?= $_SESSION['user_id'] ?>;
     </script>
 </body>
 </html>
+
+<?php
+/**
+ * Helper function to format time ago
+ */
+function formatTimeAgo($dateString) {
+    $date = new DateTime($dateString);
+    $now = new DateTime();
+    $diff = $now->diff($date);
+    
+    if ($diff->days > 7) {
+        return $date->format('M j, Y');
+    } elseif ($diff->days > 0) {
+        return $diff->days . 'd ago';
+    } elseif ($diff->h > 0) {
+        return $diff->h . 'h ago';
+    } elseif ($diff->i > 0) {
+        return $diff->i . 'm ago';
+    } else {
+        return 'Just now';
+    }
+}
+?>

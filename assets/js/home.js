@@ -8,6 +8,7 @@ let currentStoryIndex = 0;
 let stories = [];
 let isStoryPlaying = false;
 let storyTimer = null;
+let sharePostId = null;
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
@@ -20,20 +21,12 @@ document.addEventListener('DOMContentLoaded', function() {
  * Initialize home page functionality
  */
 function initializeHomePage() {
-    // Initialize post interactions
     initializePostInteractions();
-    
-    // Initialize media preview
     initializeMediaPreview();
-    
-    // Initialize privacy toggle
     initializePrivacyToggle();
-    
-    // Initialize friend request handlers
     initializeFriendRequests();
-    
-    // Initialize infinite scroll
     initializeInfiniteScroll();
+    initializeShareFunctionality();
 }
 
 /**
@@ -47,6 +40,14 @@ function initializePostInteractions() {
             const likeBtn = e.target.closest('.like-btn');
             const postId = likeBtn.dataset.postId;
             toggleLike(postId);
+        }
+        
+        // Share button handlers
+        if (e.target.closest('.share-btn')) {
+            e.preventDefault();
+            const shareBtn = e.target.closest('.share-btn');
+            const postId = shareBtn.closest('.post-card').dataset.postId;
+            openShareModal(postId);
         }
     });
     
@@ -180,6 +181,66 @@ function updateCommentCount(postId) {
     const commentCountSpan = postCard.querySelector('.comment-count');
     const currentCount = parseInt(commentCountSpan.textContent);
     commentCountSpan.textContent = currentCount + 1;
+}
+
+/**
+ * Initialize share functionality
+ */
+function initializeShareFunctionality() {
+    // Share modal close handlers
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.share-modal-backdrop') || e.target.closest('.close-share-btn')) {
+            closeShareModal();
+        }
+    });
+}
+
+/**
+ * Open share modal
+ */
+function openShareModal(postId) {
+    sharePostId = postId;
+    const modal = document.getElementById('shareModal');
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+/**
+ * Close share modal
+ */
+function closeShareModal() {
+    const modal = document.getElementById('shareModal');
+    modal.style.display = 'none';
+    document.body.style.overflow = 'auto';
+    sharePostId = null;
+}
+
+/**
+ * Copy post link to clipboard
+ */
+async function copyPostLink() {
+    if (!sharePostId) return;
+    
+    const postUrl = `${window.location.origin}/comments?post_id=${sharePostId}`;
+    
+    try {
+        await navigator.clipboard.writeText(postUrl);
+        showToast('success', 'Post link copied to clipboard');
+        closeShareModal();
+    } catch (error) {
+        console.error('Copy error:', error);
+        showToast('error', 'Failed to copy link');
+    }
+}
+
+/**
+ * Share post to friends
+ */
+function shareToFriends() {
+    if (!sharePostId) return;
+    
+    // For now, just copy the link - can be enhanced later
+    copyPostLink();
 }
 
 /**
@@ -712,7 +773,7 @@ function formatTimeAgo(dateString) {
     }
 }
 
-// Add CSS for new posts notification
+// Add CSS for new posts notification and share modal
 const style = document.createElement('style');
 style.textContent = `
     .new-posts-notification {
