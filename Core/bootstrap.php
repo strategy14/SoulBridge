@@ -1,5 +1,5 @@
 <?php
-
+ require_once 'vendor/autoload.php';
 require_once 'Core/Security/SessionManager.php';
 require_once 'Database/dbConnection.php';
 require_once 'Database/queryBuilder.php';

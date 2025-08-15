@@ -64,7 +64,7 @@
                                         <span>Add Friend</span>
                                     </button>
                                 <?php endif; ?>
-                                <a href="profile?id=<?= $user['id'] ?? '' ?>" class="action-btn view-btn">
+                                <a href="profile?id=<?= $user['id']?>" class="action-btn view-btn">
                                     <i class="fas fa-eye"></i>
                                     <span>View Profile</span>
                                 </a>

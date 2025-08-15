@@ -144,7 +144,8 @@
                                     Media
                                 </button>
                                 <button type="submit" class="post-btn">
-                                    <i class="fas fa-paper-plane"></i>
+        
+                                <i class="fas fa-paper-plane"></i>
                                     Post
                                 </button>
                             </div>

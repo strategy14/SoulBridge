@@ -15,7 +15,7 @@ return $routes = [
         '/api/notification-counts' => 'PagesController@apiNotificationCounts',
         '/api/new-posts-count' => 'PagesController@apiNewPostsCount',
         '/api/posts/like-counts' => 'PagesController@apiLikeCounts',
-        '/api/posts/comment-counts' => 'PagesController@apiCommentCounts'
+        '/api/posts/comment-counts' => 'PagesController@apiCommentCounts',
         '/comments' => 'PagesController@comment'
         
     ],

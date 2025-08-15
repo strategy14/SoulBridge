@@ -10,7 +10,7 @@
         
         <form action="search" method="GET" class="nav-search">
             <div class="search-input-wrapper">
-                <i class="fas fa-search search-icon"></i>
+                <i class="fas fa-search search-icon" style="cursor: pointer;"></i>
                 <input 
                     type="search" 
                     name="search" 
