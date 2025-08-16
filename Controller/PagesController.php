@@ -22,7 +22,6 @@ class PagesController {
         $login_user = $queryBuilder->getUserData($current_user_id);
         $user = $queryBuilder->getUserData($current_user_id);
 
-        // Friend status logic
         $friend_status = null;
         $action_user_id = null;
         if ($profile_user_id !== $current_user_id) {
@@ -35,8 +34,7 @@ class PagesController {
                 $action_user_id = $friends[0]['actionUserId'];
             }
         }
-        $posts = $queryBuilder->getProfilePosts($profile_user_id);
-        // Counts
+        $posts = $queryBuilder->getProfilePosts($profile_user_id, $current_user_id);
         $friends_count = $queryBuilder->select('friends', 'COUNT(*) AS count', '(userId = :id OR friendId = :id) AND status = "accepted"', ['id' => $profile_user_id])[0]['count'];
         $post_count = $queryBuilder->select('posts', 'COUNT(*) AS post_count', 'userId = :id', ['id' => $profile_user_id])[0]['post_count'];
         foreach ($posts as $post) {

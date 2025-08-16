@@ -242,13 +242,19 @@ function escapeHtml(text) {
 
 // Message polling for real-time updates
 let pollingInterval;
+let pollingErrorCount = 0;
+const MAX_POLLING_ERRORS = 5;
 
 function startMessagePolling() {
+    pollingErrorCount = 0; // reset on start
     // Poll every 3 seconds for new messages
     pollingInterval = setInterval(async () => {
         try {
+            // Make sure this endpoint exists and is correct in your backend:
+            // /api/messages/:chatId/latest
             const response = await fetch(`/api/messages/${chatId}/latest`);
             if (response.ok) {
+                pollingErrorCount = 0; // reset on success
                 const data = await response.json();
                 if (data.messages && data.messages.length > 0) {
                     const messagesArea = document.getElementById('messagesArea');
@@ -272,9 +278,20 @@ function startMessagePolling() {
                     
                     scrollToBottom(messagesArea);
                 }
+            } else {
+                pollingErrorCount++;
+                if (pollingErrorCount >= MAX_POLLING_ERRORS) {
+                    clearInterval(pollingInterval);
+                    showToast('Message updates stopped due to repeated errors.', 'error');
+                }
             }
         } catch (error) {
+            pollingErrorCount++;
             console.error('Error polling messages:', error);
+            if (pollingErrorCount >= MAX_POLLING_ERRORS) {
+                clearInterval(pollingInterval);
+                showToast('Message updates stopped due to repeated errors.', 'error');
+            }
         }
     }, 3000);
 }

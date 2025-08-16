@@ -19,11 +19,11 @@
     <?php
     $search_term = isset($_GET['search']) ? trim($_GET['search']) : '';
     $login_user = $queryBuilder->getUserData($current_user_id);
-    $user = $login_user; // For navigation
+    $user = $login_user; 
     require_once 'view/nav.view.php';
-    $user = $queryBuilder->getUserData($profile_user_id); // Reset to profile user
+    $user = $queryBuilder->getUserData($profile_user_id);
     ?>
-    
+
     <div class="profile-main">
         <!-- Profile Header -->
         <div class="profile-header-section">

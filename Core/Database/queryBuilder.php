@@ -509,8 +509,10 @@
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function getProfilePosts($profile_user_id) {
-        $sql = "SELECT 
+    public function getProfilePosts($profile_user_id, $current_user_id) {
+        if ($profile_user_id == $current_user_id) {
+            // Viewing own profile: show all posts
+            $sql = "SELECT 
                     p.id AS post_id,
                     p.caption AS content,
                     p.created_at,
@@ -523,10 +525,60 @@
                 LEFT JOIN profiles pr ON u.id = pr.id
                 WHERE p.userId = :profile_user_id
                 ORDER BY p.created_at DESC";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute(['profile_user_id' => $profile_user_id]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } else {
+            // Check if current user and profile user are friends
+            $sqlFriend = "SELECT 1 FROM friends 
+                          WHERE ((userId = :profile_user_id AND friendId = :current_user_id) 
+                              OR (userId = :current_user_id AND friendId = :profile_user_id))
+                              AND status = 'accepted'";
+            $stmtFriend = $this->pdo->prepare($sqlFriend);
+            $stmtFriend->execute([
+                'profile_user_id' => $profile_user_id,
+                'current_user_id' => $current_user_id
+            ]);
+            $areFriends = $stmtFriend->fetch(PDO::FETCH_ASSOC);
 
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute(['profile_user_id' => $profile_user_id]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            if ($areFriends) {
+                // Friends: show all posts
+                $sql = "SELECT 
+                        p.id AS post_id,
+                        p.caption AS content,
+                        p.created_at,
+                        p.photo AS post_photo,
+                        p.isPublic AS post_public,
+                        CONCAT(u.firstName, ' ', u.lastName) AS username,
+                        pr.avatar AS profile_pic
+                    FROM posts p
+                    JOIN users u ON p.userId = u.id
+                    LEFT JOIN profiles pr ON u.id = pr.id
+                    WHERE p.userId = :profile_user_id
+                    ORDER BY p.created_at DESC";
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->execute(['profile_user_id' => $profile_user_id]);
+                return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            } else {
+                // Not friends: show only public posts
+                $sql = "SELECT 
+                        p.id AS post_id,
+                        p.caption AS content,
+                        p.created_at,
+                        p.photo AS post_photo,
+                        p.isPublic AS post_public,
+                        CONCAT(u.firstName, ' ', u.lastName) AS username,
+                        pr.avatar AS profile_pic
+                    FROM posts p
+                    JOIN users u ON p.userId = u.id
+                    LEFT JOIN profiles pr ON u.id = pr.id
+                    WHERE p.userId = :profile_user_id AND p.isPublic = 1
+                    ORDER BY p.created_at DESC";
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->execute(['profile_user_id' => $profile_user_id]);
+                return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            }
+        }
     }
 
 public function findExistingChat($user1, $user2) {
