@@ -127,10 +127,18 @@ function filterChats(searchTerm) {
  */
 function initializeMessageInput() {
     const messageInput = document.getElementById('messageInput');
+    const attachmentBtn = document.querySelector('.attachment-btn');
+    
     if (messageInput) {
         // Handle typing indicators
         messageInput.addEventListener('input', handleTyping);
         messageInput.addEventListener('keydown', handleKeyDown);
+    }
+    
+    if (attachmentBtn) {
+        attachmentBtn.addEventListener('click', () => {
+            document.getElementById('imageUpload').click();
+        });
     }
 }
 
@@ -306,8 +314,9 @@ async function sendMessage(event) {
     const messageInput = form.querySelector('.message-input');
     const sendBtn = form.querySelector('.send-btn');
     const message = messageInput.value.trim();
+    const imageFile = document.getElementById('imageUpload').files[0];
     
-    if (!message) {
+    if (!message && !imageFile) {
         showToast('error', 'Please enter a message');
         return;
     }
@@ -322,34 +331,49 @@ async function sendMessage(event) {
         sendTypingIndicator(false);
     }
     
-    // Optimistically add message to UI
-    const optimisticMessage = {
-        content: message,
-        senderId: window.currentUserId,
-        created_at: new Date().toISOString(),
-        isOptimistic: true
-    };
+    // Optimistically add message to UI if text message
+    if (message) {
+        const optimisticMessage = {
+            content: message,
+            senderId: window.currentUserId,
+            created_at: new Date().toISOString(),
+            isOptimistic: true
+        };
+        
+        appendMessage(optimisticMessage);
+        messageInput.value = '';
+        scrollToBottom();
+    }
     
-    appendMessage(optimisticMessage);
-    messageInput.value = '';
-    scrollToBottom();
+    // Clear image preview
+    if (imageFile) {
+        removeImagePreview();
+    }
     
     try {
         const formData = new FormData(form);
+        if (imageFile) {
+            formData.append('image', imageFile);
+        }
         
         const response = await fetch('/sendMessage', {
             method: 'POST',
             body: formData
         });
         
-        if (response.ok) {
+        const data = await response.json();
+        
+        if (data.success) {
             // Message sent successfully
             showToast('success', 'Message sent');
             
             // Remove optimistic message and let polling add the real one
             removeOptimisticMessages();
+            
+            // Immediately poll for new messages
+            setTimeout(pollForNewMessages, 500);
         } else {
-            throw new Error('Failed to send message');
+            throw new Error(data.error || 'Failed to send message');
         }
     } catch (error) {
         console.error('Send message error:', error);
@@ -639,6 +663,47 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+/**
+ * Preview image before sending
+ */
+function previewImage(event) {
+    const file = event.target.files[0];
+    const preview = document.getElementById('imagePreview');
+    const previewImg = document.getElementById('previewImg');
+    
+    if (file) {
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            showToast('error', 'Please select a valid image file');
+            return;
+        }
+        
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            showToast('error', 'Image size must be less than 5MB');
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            previewImg.src = e.target.result;
+            preview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+/**
+ * Remove image preview
+ */
+function removeImagePreview() {
+    const preview = document.getElementById('imagePreview');
+    const imageUpload = document.getElementById('imageUpload');
+    
+    preview.style.display = 'none';
+    imageUpload.value = '';
 }
 
 // Cleanup on page unload

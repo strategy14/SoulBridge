@@ -1,6 +1,6 @@
 /**
  * Story Viewer JavaScript
- * Handles story viewing, navigation, and upload functionality
+ * Handles Facebook-style story carousel and modal viewer
  */
 
 class StoryViewer {
@@ -17,9 +17,121 @@ class StoryViewer {
     }
     
     init() {
-        this.bindEvents();
-        this.createModal();
         this.loadStoriesData();
+        this.createModal();
+        this.bindEvents();
+        this.initializeCarousel();
+    }
+    
+    loadStoriesData() {
+        // Get stories from window.stories or DOM elements
+        if (window.stories && window.stories.length > 0) {
+            this.stories = window.stories.map(story => ({
+                id: story.id,
+                userId: story.userId,
+                media: story.media,
+                mediaType: story.mediaType,
+                author: `${story.firstName} ${story.lastName}`,
+                avatar: story.avatar || 'images/profile.jpg',
+                createdAt: story.created_at
+            }));
+        } else {
+            // Fallback to DOM elements
+            const storyElements = document.querySelectorAll('.story[data-story-id]');
+            this.stories = Array.from(storyElements).map(element => ({
+                id: element.dataset.storyId,
+                userId: element.dataset.userId || '',
+                media: element.dataset.media || '',
+                mediaType: element.dataset.mediaType || 'image',
+                author: element.dataset.author || 'Unknown',
+                avatar: element.dataset.avatar || 'images/profile.jpg',
+                createdAt: element.dataset.createdAt || new Date().toISOString()
+            }));
+        }
+    }
+    
+    initializeCarousel() {
+        const storiesContainer = document.querySelector('.stories-container');
+        if (!storiesContainer) return;
+        
+        // Add scroll buttons for better navigation
+        this.addScrollButtons(storiesContainer);
+        
+        // Enable smooth scrolling
+        storiesContainer.style.scrollBehavior = 'smooth';
+        
+        // Add touch/swipe support for mobile
+        this.addTouchSupport(storiesContainer);
+    }
+    
+    addScrollButtons(container) {
+        const storiesSection = container.closest('.stories-section');
+        if (!storiesSection) return;
+        
+        // Create scroll buttons
+        const scrollLeft = document.createElement('button');
+        scrollLeft.className = 'story-scroll-btn story-scroll-left';
+        scrollLeft.innerHTML = '<i class="fas fa-chevron-left"></i>';
+        scrollLeft.onclick = () => this.scrollStories('left');
+        
+        const scrollRight = document.createElement('button');
+        scrollRight.className = 'story-scroll-btn story-scroll-right';
+        scrollRight.innerHTML = '<i class="fas fa-chevron-right"></i>';
+        scrollRight.onclick = () => this.scrollStories('right');
+        
+        // Add buttons to stories section
+        storiesSection.style.position = 'relative';
+        storiesSection.appendChild(scrollLeft);
+        storiesSection.appendChild(scrollRight);
+        
+        // Update button visibility based on scroll position
+        container.addEventListener('scroll', () => {
+            this.updateScrollButtons(container, scrollLeft, scrollRight);
+        });
+        
+        // Initial button state
+        this.updateScrollButtons(container, scrollLeft, scrollRight);
+    }
+    
+    updateScrollButtons(container, leftBtn, rightBtn) {
+        const { scrollLeft, scrollWidth, clientWidth } = container;
+        
+        leftBtn.style.display = scrollLeft > 0 ? 'flex' : 'none';
+        rightBtn.style.display = scrollLeft < scrollWidth - clientWidth - 10 ? 'flex' : 'none';
+    }
+    
+    scrollStories(direction) {
+        const container = document.querySelector('.stories-container');
+        const scrollAmount = 240; // Width of 2 stories
+        
+        if (direction === 'left') {
+            container.scrollLeft -= scrollAmount;
+        } else {
+            container.scrollLeft += scrollAmount;
+        }
+    }
+    
+    addTouchSupport(container) {
+        let startX = 0;
+        let scrollStart = 0;
+        
+        container.addEventListener('touchstart', (e) => {
+            startX = e.touches[0].clientX;
+            scrollStart = container.scrollLeft;
+        });
+        
+        container.addEventListener('touchmove', (e) => {
+            if (!startX) return;
+            
+            const currentX = e.touches[0].clientX;
+            const diff = startX - currentX;
+            container.scrollLeft = scrollStart + diff;
+        });
+        
+        container.addEventListener('touchend', () => {
+            startX = 0;
+            scrollStart = 0;
+        });
     }
     
     bindEvents() {
@@ -86,11 +198,6 @@ class StoryViewer {
                         <i class="fas fa-chevron-right"></i>
                     </button>
                 </div>
-                <div class="story-actions">
-                    <button class="story-action-btn" onclick="this.parentElement.parentElement.parentElement.querySelector('.story-close-btn').click()">
-                        <i class="fas fa-pause"></i>
-                    </button>
-                </div>
             </div>
         `;
         
@@ -109,19 +216,6 @@ class StoryViewer {
         });
         
         this.progressBar = this.modal.querySelector('.story-progress-bar');
-    }
-    
-    loadStoriesData() {
-        const storyElements = document.querySelectorAll('.story[data-story-id]');
-        this.stories = Array.from(storyElements).map(element => ({
-            id: element.dataset.storyId,
-            element: element,
-            media: element.dataset.media,
-            mediaType: element.dataset.mediaType,
-            author: element.dataset.author,
-            avatar: element.dataset.avatar,
-            createdAt: element.dataset.createdAt
-        }));
     }
     
     async openStory(storyId) {
@@ -152,7 +246,8 @@ class StoryViewer {
         const storyTime = this.modal.querySelector('.story-time');
         
         // Update user info
-        userAvatar.src = story.avatar || 'images/profile.jpg';
+        userAvatar.src = story.avatar;
+        userAvatar.onerror = () => { userAvatar.src = 'images/profile.jpg'; };
         username.textContent = story.author;
         storyTime.textContent = this.formatTime(story.createdAt);
         
@@ -223,13 +318,6 @@ class StoryViewer {
     
     togglePlayPause() {
         this.isPlaying = !this.isPlaying;
-        const actionBtn = this.modal.querySelector('.story-action-btn i');
-        
-        if (this.isPlaying) {
-            actionBtn.className = 'fas fa-pause';
-        } else {
-            actionBtn.className = 'fas fa-play';
-        }
     }
     
     nextStory() {

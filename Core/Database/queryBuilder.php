@@ -729,14 +729,15 @@ public function getChatUser($chat_id, $current_user_id) {
     return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
-public function sendMessage($chat_id, $sender_id, $content) {
-    $sql = "INSERT INTO messages (chatId, senderId, content, created_at) 
-            VALUES (:chat_id, :sender_id, :content, NOW())";
+public function sendMessage($chat_id, $sender_id, $content, $image_path = null) {
+    $sql = "INSERT INTO messages (chatId, senderId, content, image_path, created_at) 
+            VALUES (:chat_id, :sender_id, :content, :image_path, NOW())";
     $stmt = $this->pdo->prepare($sql);
     return $stmt->execute([
         'chat_id' => $chat_id,
         'sender_id' => $sender_id,
-        'content' => $content
+        'content' => $content,
+        'image_path' => $image_path
     ]);
 }
 public function getLastMessageForUser($current_user_id){

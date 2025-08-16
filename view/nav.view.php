@@ -15,7 +15,7 @@ $search_term = isset($_GET['search']) ? trim($_GET['search']) : '';
         <div class="nav-search">
             <form action="/search" method="GET" class="search-form">
                 <div class="search-wrapper">
-                    <i class="fas fa-search search-icon" style="cursor: pointer;"></i>
+                    <i class="fas fa-search search-icon"></i>
                     <input type="search" 
                            name="search" 
                            placeholder="Search for people..." 

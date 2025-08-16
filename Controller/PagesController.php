@@ -614,17 +614,24 @@ class PagesController {
 }
     public function sendMessage() {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_SESSION['user_id'])) {
-            header('Location: /');
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'error' => 'Unauthorized']);
             exit();
         }
         
+        header('Content-Type: application/json');
+        
+        try {
         $chat_id = (int)($_POST['chat_id'] ?? 0);
         $message = trim($_POST['message'] ?? '');
         $user_id = (int)$_SESSION['user_id'];
         
-        if (empty($message) || $chat_id <= 0) {
-            header("Location: /message?chat_id=$chat_id&error=empty_message");
-            exit();
+            if ($chat_id <= 0) {
+                throw new Exception('Invalid chat ID');
+            }
+            
+            if (empty($message) && !isset($_FILES['image'])) {
+                throw new Exception('Message cannot be empty');
         }
         
         $queryBuilder = new queryBuilder();
@@ -641,17 +648,53 @@ class PagesController {
         }
         
         if (!$has_access) {
-            header('Location: /message?error=access_denied');
-            exit();
+                throw new Exception('Access denied to this chat');
         }
         
+            // Handle image upload if present
+            $imagePath = null;
+            if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+                $file = $_FILES['image'];
+                
+                // Validate file type
+                $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+                if (!in_array($file['type'], $allowedTypes)) {
+                    throw new Exception('Invalid file type. Only JPEG, PNG, and GIF are allowed');
+                }
+                
+                // Validate file size (max 5MB)
+                if ($file['size'] > 5 * 1024 * 1024) {
+                    throw new Exception('File size too large. Maximum 5MB allowed');
+                }
+                
+                // Create upload directory
+                $uploadDir = 'uploads/messages/';
+                if (!is_dir($uploadDir)) {
+                    mkdir($uploadDir, 0777, true);
+                }
+                
+                // Generate unique filename
+                $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+                $filename = 'msg_' . $user_id . '_' . time() . '.' . $extension;
+                $imagePath = $uploadDir . $filename;
+                
+                if (!move_uploaded_file($file['tmp_name'], $imagePath)) {
+                    throw new Exception('Failed to save uploaded image');
+                }
+            }
+            
         // Send the message
-        $success = $queryBuilder->sendMessage($chat_id, $user_id, $message);
+            $success = $queryBuilder->sendMessage($chat_id, $user_id, $message, $imagePath);
         
         if ($success) {
-            header("Location: /message?chat_id=$chat_id");
+                echo json_encode(['success' => true, 'message' => 'Message sent successfully']);
         } else {
-            header("Location: /message?chat_id=$chat_id&error=send_failed");
+                throw new Exception('Failed to send message');
+        }
+            
+        } catch (Exception $e) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }
         exit();
     }

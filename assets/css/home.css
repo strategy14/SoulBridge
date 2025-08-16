@@ -204,11 +204,13 @@ body {
 
 .stories-container {
     display: flex;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
     overflow-x: auto;
-    padding-bottom: var(--spacing-xs);
+    padding: var(--spacing-sm) 0;
     scrollbar-width: none;
     -ms-overflow-style: none;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
 }
 
 .stories-container::-webkit-scrollbar {
@@ -217,63 +219,82 @@ body {
 
 .story {
     flex-shrink: 0;
-    width: 100px;
+    width: 120px;
+    height: 200px;
     text-align: center;
     cursor: pointer;
-    transition: transform 0.2s ease;
+    transition: all 0.3s ease;
+    border-radius: 16px;
+    overflow: hidden;
+    position: relative;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 16px;
+    color: white;
 }
 
 .story:hover {
-    transform: translateY(-4px);
+    transform: translateY(-8px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
 }
 
-.story-image {
-    width: 80px;
-    height: 80px;
+.story.add-story {
+    background: white;
+    border: 2px dashed var(--primary-color);
+    color: var(--primary-color);
+    justify-content: center;
+    align-items: center;
+}
+
+.story.add-story:hover {
+    background: #f8f7ff;
+    border-color: var(--primary-hover);
+}
+
+.story .profile-photo {
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
-    margin: 0 auto var(--spacing-xs);
-    position: relative;
+    border: 3px solid white;
     overflow: hidden;
-    border: 3px solid var(--primary-color);
+    position: relative;
 }
 
-.story-image img {
+.story .profile-photo img {
     width: 100%;
     height: 100%;
     object-fit: cover;
 }
 
-.add-story .story-image {
-    border: 2px dashed var(--border-color);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: var(--secondary-color);
-}
-
-.add-icon {
+.story .add-icon {
     position: absolute;
-    bottom: -2px;
-    right: -2px;
-    width: 24px;
-    height: 24px;
+    bottom: 16px;
+    right: 16px;
+    width: 28px;
+    height: 28px;
     background: var(--primary-color);
+    color: white;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
-    font-size: 0.8rem;
-    border: 2px solid white;
+    font-size: 16px;
+    font-weight: bold;
 }
 
-.story-name {
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: var(--text-secondary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.story .name {
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    line-height: 1.2;
+}
+
+.story.add-story .name {
+    text-shadow: none;
+    margin-top: 8px;
 }
 
 /* Create Post Section */
@@ -552,31 +573,33 @@ input[type="checkbox"] {
 
 .post-actions {
     display: flex;
-    gap: var(--spacing-sm);
-    margin-bottom: var(--spacing-md);
+    justify-content: space-around;
+    align-items: center;
     padding: var(--spacing-sm) 0;
     border-top: 1px solid var(--border-color);
-    border-bottom: 1px solid var(--border-color);
+    margin-bottom: var(--spacing-md);
 }
 
 .action-btn {
-    flex: 1;
-    padding: var(--spacing-sm);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
     border: none;
     background: none;
     color: var(--text-secondary);
     cursor: pointer;
     border-radius: var(--border-radius);
     transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
+    font-size: 0.9rem;
+    font-weight: 600;
+    min-width: 60px;
     justify-content: center;
-    gap: var(--spacing-xs);
-    font-weight: 500;
 }
 
 .action-btn:hover {
     background-color: var(--secondary-color);
+    transform: translateY(-1px);
 }
 
 .action-btn.liked {
@@ -585,6 +608,21 @@ input[type="checkbox"] {
 
 .action-btn.liked:hover {
     background-color: rgba(255, 71, 87, 0.1);
+}
+
+.action-btn i {
+    font-size: 1.1rem;
+}
+
+.like-count,
+.comment-count {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.action-btn.liked .like-count {
+    color: #ff4757;
 }
 
 /* Quick Comment */

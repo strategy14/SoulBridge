@@ -247,17 +247,18 @@
                                     <div class="post-actions">
                                         <button class="action-btn like-btn <?= $liked ? 'liked' : '' ?>" 
                                                 data-post-id="<?= $post['post_id'] ?>"
-                                                onclick="toggleLike(<?= $post['post_id'] ?>)">
+                                                onclick="togglePostLike(<?= $post['post_id'] ?>)">
                                             <i class="<?= $liked ? 'fas' : 'far' ?> fa-heart"></i>
-                                            <span>Like</span>
+                                            <span class="like-count"><?= $like_count ?></span>
                                         </button>
                                         <button class="action-btn comment-btn" 
                                                 onclick="window.location.href='/comments?post_id=<?= $post['post_id'] ?>'">
                                             <i class="far fa-comment"></i>
-                                            <span>Comment</span>
+                                            <span class="comment-count"><?= $comment_count ?></span>
                                         </button>
-                                        <button class="action-btn share-btn" 
+                                        <button class="action-btn share-btn"
                                                 data-post-id="<?= $post['post_id'] ?>">
+                                                onclick="openShareModal(<?= $post['post_id'] ?>)">
                                             <i class="fas fa-share"></i>
                                             <span>Share</span>
                                         </button>
@@ -270,7 +271,7 @@
                                                  alt="Your Profile"
                                                  onerror="this.src='images/profile.jpg'">
                                         </div>
-                                        <form class="comment-form" onsubmit="submitComment(event, <?= $post['post_id'] ?>)">
+                                        <form class="comment-form" data-post-id="<?= $post['post_id'] ?>" onsubmit="submitQuickComment(event)">
                                             <input type="text" 
                                                    placeholder="Write a comment..." 
                                                    name="comment" 
@@ -362,77 +363,10 @@
     </main>
 
     <!-- Story Viewer Modal -->
-    <div id="storyModal" class="story-modal" style="display: none;">
-        <div class="story-viewer">
-            <div class="story-header">
-                <div class="story-progress">
-                    <div class="progress-bar" id="storyProgress"></div>
-                </div>
-                <div class="story-user-info">
-                    <img id="storyAuthorAvatar" src="" alt="Author" class="story-user-avatar">
-                    <span id="storyAuthorName" class="story-username"></span>
-                    <span id="storyTime" class="story-time"></span>
-                </div>
-                <button class="story-close-btn" onclick="closeStoryViewer()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="story-content">
-                <button class="story-nav-btn story-prev-btn" onclick="previousStory()">
-                    <i class="fas fa-chevron-left"></i>
-                </button>
-                <div class="story-media" id="storyMedia"></div>
-                <button class="story-nav-btn story-next-btn" onclick="nextStory()">
-                    <i class="fas fa-chevron-right"></i>
-                </button>
-            </div>
-        </div>
-    </div>
+    <!-- Story Modal will be created by JavaScript -->
 
     <!-- Share Modal -->
-    <div id="shareModal" class="share-modal" style="display: none;">
-        <div class="share-content">
-            <div class="share-header">
-                <h3>Share Post</h3>
-                <button class="close-btn" onclick="closeShareModal()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="share-options">
-                <button class="share-option" onclick="copyPostLink()">
-                    <i class="fas fa-link"></i>
-                    <span>Copy Link</span>
-                </button>
-                <button class="share-option" onclick="shareToFriends()">
-                    <i class="fas fa-user-friends"></i>
-                    <span>Share to Friends</span>
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Share Modal -->
-    <div id="shareModal" class="share-modal" style="display: none;">
-        <div class="share-modal-backdrop" onclick="closeShareModal()"></div>
-        <div class="share-content">
-            <div class="share-header">
-                <h3>Share Post</h3>
-                <button class="close-share-btn" onclick="closeShareModal()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="share-options">
-                <button class="share-option" onclick="copyPostLink()">
-                    <i class="fas fa-link"></i>
-                    <span>Copy Link</span>
-                </button>
-                <button class="share-option" onclick="shareToFriends()">
-                    <i class="fas fa-user-friends"></i>
-                    <span>Share to Friends</span>
-                </button>
-            </div>
-        </div>
-    </div>
+    <!-- Share Modal will be created by JavaScript -->
 
     <!-- Image Modal -->
     <div id="imageModal" class="image-modal" style="display: none;" onclick="closeImageModal()">
@@ -452,6 +386,7 @@
         window.userData = <?= json_encode($data['user']) ?>;
         window.csrfToken = '<?= $data['csrf_token'] ?>';
         window.currentUserId = <?= $_SESSION['user_id'] ?>;
+        window.stories = <?= json_encode($stories ?? []) ?>;
     </script>
 </body>
 </html>

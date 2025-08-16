@@ -149,6 +149,7 @@
                                 <button type="button" class="attachment-btn" title="Attach file">
                                     <i class="fas fa-paperclip"></i>
                                 </button>
+                                <input type="file" id="imageUpload" name="image" accept="image/*" style="display: none;" onchange="previewImage(event)">
                                 <input type="text" 
                                        name="message" 
                                        placeholder="Type a message..." 
@@ -162,6 +163,15 @@
                                 <button type="submit" class="send-btn" id="sendBtn">
                                     <i class="fas fa-paper-plane"></i>
                                 </button>
+                            </div>
+                            <!-- Image Preview -->
+                            <div id="imagePreview" class="image-preview" style="display: none;">
+                                <div class="preview-container">
+                                    <img id="previewImg" src="" alt="Preview">
+                                    <button type="button" class="remove-preview" onclick="removeImagePreview()">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
                             </div>
                         </form>
                     </div>

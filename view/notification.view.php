@@ -70,8 +70,12 @@
                                 </div>
                             <?php else: ?>
                                 <div class="notifications-list" id="notificationsList">
-                                    <?php foreach ($notifications as $notification): ?>
-                                        <?php if (strpos($notification['message'], 'system') === false): ?>
+                                    <?php 
+                                    $filteredNotifications = array_filter($notifications, function($n) {
+                                        return strpos($n['message'], 'system') === false;
+                                    });
+                                    ?>
+                                    <?php foreach ($filteredNotifications as $notification): ?>
                                         <div class="notification-item <?= $notification['status'] === 'unread' ? 'unread' : '' ?>" 
                                              data-id="<?= $notification['id'] ?>"
                                              data-type="<?= getNotificationType($notification['message']) ?>">
@@ -90,8 +94,8 @@
                                                     <?= htmlspecialchars($notification['message']) ?>
                                                 </div>
                                                 <div class="notification-meta">
-                                                    <time datetime="<?= $notification['created_at'] ?>">
-                                                        <?= formatTimeAgo($notification['created_at']) ?>
+                                                    <time datetime="<?= $notification['created_at'] ?>" class="notification-time">
+                                                        <?= formatNotificationTime($notification['created_at']) ?>
                                                     </time>
                                                     <?php if ($notification['status'] === 'unread'): ?>
                                                         <span class="unread-badge">New</span>
@@ -125,7 +129,6 @@
                                                 </button>
                                             </div>
                                         </div>
-                                        <?php endif; ?>
                                     <?php endforeach; ?>
                                 </div>
                             <?php endif; ?>
@@ -283,13 +286,13 @@ function getNotificationType($message) {
 /**
  * Helper function to format time ago
  */
-function formatTimeAgo($dateString) {
+function formatNotificationTime($dateString) {
     $date = new DateTime($dateString);
     $now = new DateTime();
     $diff = $now->diff($date);
     
-    if ($diff->days > 7) {
-        return $date->format('M j, Y');
+    if ($diff->days > 0) {
+        return $diff->days . ' day' . ($diff->days > 1 ? 's' : '') . ' ago';
     } elseif ($diff->days > 0) {
         return $diff->days . 'd ago';
     } elseif ($diff->h > 0) {

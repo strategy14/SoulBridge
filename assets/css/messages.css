@@ -41,14 +41,15 @@ body {
 
 .messages-container {
     height: calc(100vh - 80px);
-    display: grid;
-    grid-template-columns: 350px 1fr;
+    display: flex;
     background: white;
     box-shadow: var(--shadow-light);
 }
 
 /* Chat Sidebar */
 .chat-sidebar {
+    width: 350px;
+    flex-shrink: 0;
     border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
@@ -288,6 +289,7 @@ body {
 
 /* Chat Area */
 .chat-area {
+    flex: 1;
     display: flex;
     flex-direction: column;
     background: white;
@@ -508,6 +510,9 @@ body {
     padding: var(--spacing-md);
     border-top: 1px solid var(--border-color);
     background: white;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
 }
 
 .message-form {
@@ -583,6 +588,48 @@ body {
     opacity: 0.5;
     cursor: not-allowed;
     transform: none;
+}
+
+/* Image Preview */
+.image-preview {
+    padding: var(--spacing-sm);
+    background: var(--secondary-color);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+}
+
+.preview-container {
+    position: relative;
+    display: inline-block;
+    max-width: 200px;
+}
+
+.preview-container img {
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--border-radius);
+}
+
+.remove-preview {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+
+.remove-preview:hover {
+    background: rgba(0, 0, 0, 0.9);
 }
 
 /* Welcome Screen */
@@ -799,8 +846,8 @@ body {
 
 /* Responsive Design */
 @media (max-width: 1024px) {
-    .messages-container {
-        grid-template-columns: 300px 1fr;
+    .chat-sidebar {
+        width: 300px;
     }
 }
 
@@ -810,7 +857,6 @@ body {
     }
     
     .messages-container {
-        grid-template-columns: 1fr;
         position: relative;
     }
     

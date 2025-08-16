@@ -20,6 +20,16 @@ function initializeRealTime() {
     initializeVisibilityHandling();
     startRealTimeUpdates();
     initializeLiveInteractions();
+    requestNotificationPermission();
+}
+
+/**
+ * Request notification permission
+ */
+function requestNotificationPermission() {
+    if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+    }
 }
 
 /**
@@ -118,12 +128,15 @@ function updateBadge(badgeId, count) {
     
     if (count > 0) {
         if (badge) {
+            const oldCount = parseInt(badge.textContent);
             badge.textContent = count;
             badge.style.display = 'inline';
             
             // Add pulse animation for new notifications
-            badge.classList.add('pulse');
-            setTimeout(() => badge.classList.remove('pulse'), 1000);
+            if (count > oldCount) {
+                badge.classList.add('pulse');
+                setTimeout(() => badge.classList.remove('pulse'), 1000);
+            }
         } else {
             // Create badge if it doesn't exist
             const parentElement = badgeId === 'notification-count' 
@@ -338,7 +351,8 @@ function initializeCommentTyping() {
         let typingTimeout = null;
         
         input.addEventListener('input', function() {
-            const postId = this.closest('.post-card').dataset.postId;
+            const postId = this.closest('.post-card')?.dataset.postId;
+            if (!postId) return;
             
             // Clear existing timeout
             if (typingTimeout) {
@@ -486,7 +500,7 @@ function showLiveReaction(postCard, reactionType) {
 }
 
 /**
- * Refresh feed
+ * Refresh the feed
  */
 function refreshFeed() {
     window.location.reload();
@@ -502,16 +516,44 @@ function showDesktopNotification(title, body) {
             icon: '/images/SB1.png',
             badge: '/images/SB1.png'
         });
-    } else if ('Notification' in window && Notification.permission !== 'denied') {
-        Notification.requestPermission().then(permission => {
-            if (permission === 'granted') {
-                new Notification(title, {
-                    body: body,
-                    icon: '/images/SB1.png',
-                    badge: '/images/SB1.png'
-                });
-            }
-        });
+    }
+}
+
+/**
+ * Update notification times
+ */
+function updateNotificationTimes() {
+    const timeElements = document.querySelectorAll('.notification-time');
+    
+    timeElements.forEach(element => {
+        const datetime = element.getAttribute('datetime');
+        if (datetime) {
+            element.textContent = formatTimeAgo(datetime);
+        }
+    });
+}
+
+/**
+ * Format time ago
+ */
+function formatTimeAgo(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
+    
+    if (diffInSeconds < 60) {
+        return 'Just now';
+    } else if (diffInSeconds < 3600) {
+        const minutes = Math.floor(diffInSeconds / 60);
+        return `${minutes}m ago`;
+    } else if (diffInSeconds < 86400) {
+        const hours = Math.floor(diffInSeconds / 3600);
+        return `${hours}h ago`;
+    } else if (diffInSeconds < 604800) {
+        const days = Math.floor(diffInSeconds / 86400);
+        return `${days}d ago`;
+    } else {
+        return date.toLocaleDateString();
     }
 }
 
@@ -608,3 +650,6 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+// Update notification times every minute
+setInterval(updateNotificationTimes, 60000);

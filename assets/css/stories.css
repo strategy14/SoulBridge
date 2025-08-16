@@ -1,29 +1,28 @@
-/* Story Styles */
-.stories {
+/* Facebook-style Story Carousel Styles */
+.stories-section {
+    background: white;
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-light);
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+    position: relative;
+    overflow: hidden;
+}
+
+.stories-container {
     display: flex;
     gap: 12px;
     overflow-x: auto;
     overflow-y: hidden;
     padding: 16px 0;
-    margin-bottom: 20px;
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-    scrollbar-color: var(--border-color) transparent;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
 }
 
-.stories::-webkit-scrollbar {
-    height: 4px;
-}
-
-.stories::-webkit-scrollbar-track {
-    background: #f1f3f4;
-    border-radius: 2px;
-}
-
-.stories::-webkit-scrollbar-thumb {
-    background: #5e4dcd;
-    border-radius: 2px;
+.stories-container::-webkit-scrollbar {
+    display: none;
 }
 
 .story {
@@ -41,11 +40,12 @@
     justify-content: space-between;
     padding: 16px;
     color: white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .story:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    transform: translateY(-8px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
 }
 
 .story.add-story {
@@ -104,6 +104,41 @@
 .story.add-story .name {
     text-shadow: none;
     margin-top: 8px;
+}
+
+/* Story Scroll Buttons */
+.story-scroll-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    color: var(--primary-color);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.story-scroll-btn:hover {
+    background: white;
+    transform: translateY(-50%) scale(1.1);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.story-scroll-left {
+    left: 10px;
+}
+
+.story-scroll-right {
+    right: 10px;
 }
 
 /* Story Modal */
@@ -273,33 +308,6 @@
     right: 16px;
 }
 
-.story-actions {
-    position: absolute;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    gap: 12px;
-}
-
-.story-action-btn {
-    width: 44px;
-    height: 44px;
-    background: rgba(0, 0, 0, 0.5);
-    border: none;
-    border-radius: 50%;
-    color: white;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s ease;
-}
-
-.story-action-btn:hover {
-    background: rgba(0, 0, 0, 0.7);
-}
-
 .story-error {
     display: flex;
     flex-direction: column;
@@ -430,7 +438,7 @@
         border-radius: 0;
     }
     
-    .stories {
+    .stories-container {
         padding: 12px 0;
         gap: 8px;
     }
@@ -448,6 +456,10 @@
     
     .story .name {
         font-size: 12px;
+    }
+    
+    .story-scroll-btn {
+        display: none; /* Hide scroll buttons on mobile */
     }
 }
 

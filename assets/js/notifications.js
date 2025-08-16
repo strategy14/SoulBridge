@@ -315,6 +315,13 @@ async function deleteNotification(notificationId) {
         return;
     }
     
+    const notificationElement = document.querySelector(`[data-id="${notificationId}"]`);
+    if (!notificationElement) return;
+    
+    // Add loading state
+    notificationElement.style.opacity = '0.5';
+    notificationElement.style.pointerEvents = 'none';
+    
     try {
         const response = await fetch('/api/notifications/delete', {
             method: 'POST',
@@ -331,8 +338,6 @@ async function deleteNotification(notificationId) {
         
         if (data.success) {
             // Remove notification from UI
-            const notificationElement = document.querySelector(`[data-id="${notificationId}"]`);
-            if (notificationElement) {
                 notificationElement.style.animation = 'slideOut 0.3s ease forwards';
                 setTimeout(() => {
                     notificationElement.remove();
@@ -341,14 +346,19 @@ async function deleteNotification(notificationId) {
                     // Check if list is empty
                     checkEmptyState();
                 }, 300);
-            }
             
             showToast('success', 'Notification deleted');
         } else {
+            // Restore element state on error
+            notificationElement.style.opacity = '1';
+            notificationElement.style.pointerEvents = 'auto';
             showToast('error', data.error || 'Failed to delete notification');
         }
     } catch (error) {
         console.error('Delete notification error:', error);
+        // Restore element state on error
+        notificationElement.style.opacity = '1';
+        notificationElement.style.pointerEvents = 'auto';
         showToast('error', 'Network error occurred');
     }
 }
