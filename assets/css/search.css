@@ -416,6 +416,12 @@
         padding: 8px 12px;
         font-size: 13px;
     }
+    @media (max-width: 900px) {
+    .stories-container,
+    .stories-section {
+        max-width: 100%;
+    }
+}
     
     .toast {
         bottom: 15px;

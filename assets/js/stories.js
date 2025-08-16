@@ -165,6 +165,23 @@ class StoryViewer {
                 }
             }
         });
+        
+        document.querySelectorAll('.story[data-user-id]').forEach(storyDiv => {
+            storyDiv.addEventListener('click', function() {
+                const stories = JSON.parse(storyDiv.getAttribute('data-stories'));
+                const userData = {
+                    username: storyDiv.getAttribute('data-story-username'),
+                    avatar: storyDiv.getAttribute('data-story-avatar')
+                };
+                showUserStoryModal(stories, userData, 0); // Your modal logic
+            });
+        });
+        document.querySelector('.story-scroll-left').onclick = function() {
+            document.querySelector('.stories-container').scrollBy({ left: -200, behavior: 'smooth' });
+        };
+        document.querySelector('.story-scroll-right').onclick = function() {
+            document.querySelector('.stories-container').scrollBy({ left: 200, behavior: 'smooth' });
+        };
     }
     
     createModal() {
@@ -316,13 +333,13 @@ class StoryViewer {
         }
     }
     
-    togglePlayPause() {
-        this.isPlaying = !this.isPlaying;
+    closeStory() {
+        this.clearTimer();
+        this.modal.style.display = 'none';
+        document.body.style.overflow = '';
     }
     
     nextStory() {
-        this.clearTimer();
-        
         if (this.currentStoryIndex < this.stories.length - 1) {
             this.currentStoryIndex++;
             this.showStory();
@@ -332,150 +349,42 @@ class StoryViewer {
     }
     
     previousStory() {
-        this.clearTimer();
-        
         if (this.currentStoryIndex > 0) {
             this.currentStoryIndex--;
             this.showStory();
         }
     }
     
-    closeStory() {
-        this.clearTimer();
-        this.modal.style.display = 'none';
-        document.body.style.overflow = '';
-        this.isPlaying = false;
+    togglePlayPause() {
+        this.isPlaying = !this.isPlaying;
+        
+        if (this.isPlaying) {
+            this.startProgress();
+        } else {
+            this.clearTimer();
+        }
+    }
+    
+    formatTime(dateString) {
+        const options = {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        };
+        
+        return new Date(dateString).toLocaleString(undefined, options);
     }
     
     showErrorMessage(message) {
-        const mediaContainer = this.modal.querySelector('.story-media-container');
-        mediaContainer.innerHTML = `
-            <div class="story-error">
-                <i class="fas fa-exclamation-triangle"></i>
-                <p>${message}</p>
-            </div>
-        `;
-    }
-    
-    formatTime(timestamp) {
-        const now = new Date();
-        const storyTime = new Date(timestamp);
-        const diffInHours = Math.floor((now - storyTime) / (1000 * 60 * 60));
-        
-        if (diffInHours < 1) {
-            return 'Just now';
-        } else if (diffInHours < 24) {
-            return `${diffInHours}h ago`;
-        } else {
-            return storyTime.toLocaleDateString();
-        }
+        // Implement your error handling logic here
+        alert(message);
     }
 }
 
-// Global functions for story functionality
-function openStoryViewer(storyId) {
-    if (window.storyViewer) {
-        window.storyViewer.openStory(storyId);
-    }
-}
-
-function closeStoryViewer() {
-    if (window.storyViewer) {
-        window.storyViewer.closeStory();
-    }
-}
-
-function nextStory() {
-    if (window.storyViewer) {
-        window.storyViewer.nextStory();
-    }
-}
-
-function previousStory() {
-    if (window.storyViewer) {
-        window.storyViewer.previousStory();
-    }
-}
-
-// Initialize story viewer when DOM is loaded
+// Initialize story viewer
 document.addEventListener('DOMContentLoaded', () => {
-    window.storyViewer = new StoryViewer();
+    new StoryViewer();
 });
-
-// Story upload functionality
-function initializeStoryUpload() {
-    const storyUploadInput = document.getElementById('storyUpload');
-    if (storyUploadInput) {
-        storyUploadInput.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                // Validate file type and size
-                if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
-                    alert('Please select an image or video file');
-                    return;
-                }
-                
-                if (file.size > 20 * 1024 * 1024) { // 20MB limit
-                    alert('File size must be less than 20MB');
-                    return;
-                }
-                
-                // Show preview before upload
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    showStoryPreview(e.target.result, file.type);
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-    }
-}
-
-function showStoryPreview(src, type) {
-    const modal = document.createElement('div');
-    modal.className = 'story-preview-modal';
-    modal.innerHTML = `
-        <div class="story-preview">
-            <div class="preview-header">
-                <h3>Story Preview</h3>
-                <button class="close-preview">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="preview-content">
-                ${type.startsWith('video') ? 
-                    `<video src="${src}" controls class="preview-media"></video>` :
-                    `<img src="${src}" class="preview-media">`
-                }
-            </div>
-            <div class="preview-actions">
-                <button class="btn-cancel">Cancel</button>
-                <button class="btn-share">Share Story</button>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(modal);
-    document.body.style.overflow = 'hidden';
-    
-    // Bind events
-    modal.querySelector('.close-preview').addEventListener('click', () => {
-        document.body.removeChild(modal);
-        document.body.style.overflow = 'auto';
-    });
-    
-    modal.querySelector('.btn-cancel').addEventListener('click', () => {
-        document.body.removeChild(modal);
-        document.body.style.overflow = 'auto';
-    });
-    
-    modal.querySelector('.btn-share').addEventListener('click', () => {
-        // Submit the form
-        document.querySelector('form[action="/story-upload"]').submit();
-        document.body.removeChild(modal);
-        document.body.style.overflow = 'auto';
-    });
-}
-
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', initializeStoryUpload);

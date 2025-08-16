@@ -115,7 +115,13 @@
         $stmt->execute(['postId' => $postId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
-    
+
+    public function deleteComment($commentId) {
+        $sql = "DELETE FROM comments WHERE id = :commentId";
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute(['commentId' => $commentId]);
+    }
+
     public function searchUsers($searchTerm, $currentUserId) {
         $sql = "SELECT 
                     u.id,

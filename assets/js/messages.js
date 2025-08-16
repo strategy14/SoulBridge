@@ -1,623 +1,176 @@
-/**
- * Messages JavaScript
- * Handles messaging functionality, real-time updates, and UI interactions
- */
-
-// Global variables
-let messagePollingInterval = null;
-let isTyping = false;
-let typingTimeout = null;
-
-// Initialize when DOM is loaded
+// Messages functionality
 document.addEventListener('DOMContentLoaded', function() {
     initializeMessages();
 });
 
-/**
- * Initialize messages functionality
- */
 function initializeMessages() {
-    initializeMessagePolling();
-    initializeChatSearch();
-    initializeMessageInput();
-    initializeResponsiveHandlers();
-    scrollToBottom();
+    // Auto-scroll to bottom of messages
+    const messagesArea = document.getElementById('messagesArea');
+    if (messagesArea) {
+        scrollToBottom(messagesArea);
+    }
     
-    // Auto-focus message input if chat is active
+    // Handle message form submission
+    const messageForm = document.getElementById('messageForm');
+    if (messageForm) {
+        messageForm.addEventListener('submit', handleMessageSubmit);
+    }
+    
+    // Handle new chat modal
+    const newChatBtn = document.getElementById('newChatBtn');
+    const startChatBtn = document.getElementById('startChatBtn');
+    const newChatModal = document.getElementById('newChatModal');
+    const closeModal = document.getElementById('closeModal');
+    
+    if (newChatBtn) {
+        newChatBtn.addEventListener('click', () => showModal(newChatModal));
+    }
+    
+    if (startChatBtn) {
+        startChatBtn.addEventListener('click', () => showModal(newChatModal));
+    }
+    
+    if (closeModal) {
+        closeModal.addEventListener('click', () => hideModal(newChatModal));
+    }
+    
+    if (newChatModal) {
+        newChatModal.addEventListener('click', (e) => {
+            if (e.target === newChatModal) {
+                hideModal(newChatModal);
+            }
+        });
+    }
+    
+    // Handle chat search
+    const chatSearch = document.getElementById('chatSearch');
+    if (chatSearch) {
+        chatSearch.addEventListener('input', handleChatSearch);
+    }
+    
+    // Handle user search in modal
+    const userSearch = document.getElementById('userSearch');
+    if (userSearch) {
+        userSearch.addEventListener('input', handleUserSearch);
+    }
+    
+    // Auto-refresh messages if in a chat
+    if (chatId) {
+        startMessagePolling();
+    }
+    
+    // Handle Enter key in message input
     const messageInput = document.getElementById('messageInput');
-    if (messageInput && window.currentChatId) {
+    if (messageInput) {
+        messageInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                messageForm.dispatchEvent(new Event('submit'));
+            }
+        });
+        
+        // Auto-focus message input
         messageInput.focus();
     }
 }
 
-/**
- * Initialize message polling for real-time updates
- */
-function initializeMessagePolling() {
-    if (window.currentChatId) {
-        // Poll for new messages every 3 seconds
-        messagePollingInterval = setInterval(pollForNewMessages, 3000);
-        
-        // Poll for typing indicators every 1 second
-        setInterval(pollTypingIndicators, 1000);
-    }
-}
-
-/**
- * Poll for new messages
- */
-async function pollForNewMessages() {
-    if (!window.currentChatId) return;
+async function handleMessageSubmit(e) {
+    e.preventDefault();
     
-    try {
-        const response = await fetch(`/api/messages/${window.currentChatId}/poll`, {
-            headers: {
-                'X-CSRF-Token': window.csrfToken
-            }
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            
-            if (data.newMessages && data.newMessages.length > 0) {
-                appendNewMessages(data.newMessages);
-                markMessagesAsRead();
-            }
-        }
-    } catch (error) {
-        console.error('Failed to poll for new messages:', error);
-    }
-}
-
-/**
- * Poll for typing indicators
- */
-async function pollTypingIndicators() {
-    if (!window.currentChatId) return;
-    
-    try {
-        const response = await fetch(`/api/chat/${window.currentChatId}/typing`, {
-            headers: {
-                'X-CSRF-Token': window.csrfToken
-            }
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            updateTypingIndicator(data.isTyping, data.userName);
-        }
-    } catch (error) {
-        console.error('Failed to poll typing indicators:', error);
-    }
-}
-
-/**
- * Initialize chat search functionality
- */
-function initializeChatSearch() {
-    const chatSearch = document.getElementById('chatSearch');
-    if (chatSearch) {
-        chatSearch.addEventListener('input', function() {
-            const searchTerm = this.value.toLowerCase();
-            filterChats(searchTerm);
-        });
-    }
-}
-
-/**
- * Filter chat list based on search term
- */
-function filterChats(searchTerm) {
-    const chatItems = document.querySelectorAll('.chat-item');
-    
-    chatItems.forEach(item => {
-        const chatName = item.querySelector('.chat-name').textContent.toLowerCase();
-        const lastMessage = item.querySelector('.last-message').textContent.toLowerCase();
-        
-        if (chatName.includes(searchTerm) || lastMessage.includes(searchTerm)) {
-            item.style.display = 'flex';
-        } else {
-            item.style.display = 'none';
-        }
-    });
-}
-
-/**
- * Initialize message input functionality
- */
-function initializeMessageInput() {
-    const messageInput = document.getElementById('messageInput');
-    const attachmentBtn = document.querySelector('.attachment-btn');
-    
-    if (messageInput) {
-        // Handle typing indicators
-        messageInput.addEventListener('input', handleTyping);
-        messageInput.addEventListener('keydown', handleKeyDown);
-    }
-    
-    if (attachmentBtn) {
-        attachmentBtn.addEventListener('click', () => {
-            document.getElementById('imageUpload').click();
-        });
-    }
-}
-
-/**
- * Handle typing indicators
- */
-function handleTyping() {
-    if (!isTyping) {
-        isTyping = true;
-        sendTypingIndicator(true);
-    }
-    
-    // Clear existing timeout
-    if (typingTimeout) {
-        clearTimeout(typingTimeout);
-    }
-    
-    // Set new timeout to stop typing indicator
-    typingTimeout = setTimeout(() => {
-        isTyping = false;
-        sendTypingIndicator(false);
-    }, 2000);
-}
-
-/**
- * Handle keyboard shortcuts
- */
-function handleKeyDown(event) {
-    // Send message on Enter (but not Shift+Enter)
-    if (event.key === 'Enter' && !event.shiftKey) {
-        event.preventDefault();
-        const form = event.target.closest('form');
-        if (form) {
-            sendMessage({ target: form, preventDefault: () => {} });
-        }
-    }
-}
-
-/**
- * Send typing indicator
- */
-async function sendTypingIndicator(typing) {
-    if (!window.currentChatId) return;
-    
-    try {
-        await fetch('/api/typing', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-Token': window.csrfToken
-            },
-            body: JSON.stringify({
-                chat_id: window.currentChatId,
-                typing: typing
-            })
-        });
-    } catch (error) {
-        console.error('Failed to send typing indicator:', error);
-    }
-}
-
-/**
- * Update typing indicator display
- */
-function updateTypingIndicator(isTyping, userName) {
-    let typingIndicator = document.getElementById('typingIndicator');
-    
-    if (isTyping && userName) {
-        if (!typingIndicator) {
-            typingIndicator = document.createElement('div');
-            typingIndicator.id = 'typingIndicator';
-            typingIndicator.className = 'typing-indicator';
-            
-            const messagesList = document.getElementById('messagesList');
-            messagesList.appendChild(typingIndicator);
-        }
-        
-        typingIndicator.innerHTML = `
-            <div class="message received">
-                <div class="message-content">
-                    <div class="message-bubble">
-                        <div class="typing-dots">
-                            <span></span>
-                            <span></span>
-                            <span></span>
-                        </div>
-                    </div>
-                    <div class="message-meta">
-                        <span class="message-time">${userName} is typing...</span>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        scrollToBottom();
-    } else if (typingIndicator) {
-        typingIndicator.remove();
-    }
-}
-
-/**
- * Initialize responsive handlers
- */
-function initializeResponsiveHandlers() {
-    // Handle window resize
-    window.addEventListener('resize', handleResize);
-    
-    // Initial check
-    handleResize();
-}
-
-/**
- * Handle window resize
- */
-function handleResize() {
-    const isMobile = window.innerWidth <= 768;
-    const chatSidebar = document.getElementById('chatSidebar');
-    const chatArea = document.getElementById('chatArea');
-    const backBtn = document.getElementById('backBtn');
-    
-    if (isMobile) {
-        if (window.currentChatId) {
-            // Show chat area, hide sidebar
-            chatSidebar.classList.add('hidden');
-            chatArea.classList.add('active');
-            if (backBtn) backBtn.style.display = 'flex';
-        } else {
-            // Show sidebar, hide chat area
-            chatSidebar.classList.remove('hidden');
-            chatArea.classList.remove('active');
-        }
-    } else {
-        // Desktop view - show both
-        chatSidebar.classList.remove('hidden');
-        chatArea.classList.remove('active');
-        if (backBtn) backBtn.style.display = 'none';
-    }
-}
-
-/**
- * Open chat with user
- */
-function openChat(userId) {
-    const isMobile = window.innerWidth <= 768;
-    
-    if (isMobile) {
-        // On mobile, navigate to chat URL
-        window.location.href = `/message?start_chat=1&user_id=${userId}`;
-    } else {
-        // On desktop, update URL and reload
-        window.location.href = `/message?start_chat=1&user_id=${userId}`;
-    }
-}
-
-/**
- * Close chat on mobile
- */
-function closeChatOnMobile() {
-    const isMobile = window.innerWidth <= 768;
-    
-    if (isMobile) {
-        window.location.href = '/message';
-    }
-}
-
-/**
- * Send message
- */
-async function sendMessage(event) {
-    event.preventDefault();
-    
-    const form = event.target;
-    const messageInput = form.querySelector('.message-input');
+    const form = e.target;
+    const formData = new FormData(form);
+    const messageInput = form.querySelector('input[name="message"]');
     const sendBtn = form.querySelector('.send-btn');
-    const message = messageInput.value.trim();
-    const imageFile = document.getElementById('imageUpload').files[0];
     
-    if (!message && !imageFile) {
-        showToast('error', 'Please enter a message');
+    if (!messageInput.value.trim()) {
         return;
     }
     
-    // Disable send button and show loading
+    // Disable form while sending
+    messageInput.disabled = true;
     sendBtn.disabled = true;
     sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
     
-    // Stop typing indicator
-    if (isTyping) {
-        isTyping = false;
-        sendTypingIndicator(false);
-    }
-    
-    // Optimistically add message to UI if text message
-    if (message) {
-        const optimisticMessage = {
-            content: message,
-            senderId: window.currentUserId,
-            created_at: new Date().toISOString(),
-            isOptimistic: true
-        };
-        
-        appendMessage(optimisticMessage);
-        messageInput.value = '';
-        scrollToBottom();
-    }
-    
-    // Clear image preview
-    if (imageFile) {
-        removeImagePreview();
-    }
-    
     try {
-        const formData = new FormData(form);
-        if (imageFile) {
-            formData.append('image', imageFile);
-        }
-        
         const response = await fetch('/sendMessage', {
             method: 'POST',
             body: formData
         });
         
-        const data = await response.json();
-        
-        if (data.success) {
-            // Message sent successfully
-            showToast('success', 'Message sent');
+        if (response.ok) {
+            // Clear input
+            messageInput.value = '';
             
-            // Remove optimistic message and let polling add the real one
-            removeOptimisticMessages();
+            // Add message to UI immediately for better UX
+            addMessageToUI({
+                content: formData.get('message'),
+                senderId: currentUserId,
+                created_at: new Date().toISOString(),
+                isSent: true
+            });
             
-            // Immediately poll for new messages
-            setTimeout(pollForNewMessages, 500);
+            // Scroll to bottom
+            const messagesArea = document.getElementById('messagesArea');
+            if (messagesArea) {
+                scrollToBottom(messagesArea);
+            }
         } else {
-            throw new Error(data.error || 'Failed to send message');
+            throw new Error('Failed to send message');
         }
     } catch (error) {
-        console.error('Send message error:', error);
-        showToast('error', 'Failed to send message');
-        
-        // Remove optimistic message on error
-        removeOptimisticMessages();
+        console.error('Error sending message:', error);
+        showToast('Failed to send message', 'error');
     } finally {
-        // Re-enable send button
+        // Re-enable form
+        messageInput.disabled = false;
         sendBtn.disabled = false;
         sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
         messageInput.focus();
     }
 }
 
-/**
- * Append new messages to the chat
- */
-function appendNewMessages(messages) {
-    const messagesList = document.getElementById('messagesList');
-    if (!messagesList) return;
+function addMessageToUI(message) {
+    const messagesArea = document.getElementById('messagesArea');
+    if (!messagesArea) return;
     
-    messages.forEach(message => {
-        appendMessage(message);
-    });
+    const messageElement = document.createElement('div');
+    messageElement.className = `message ${message.senderId == currentUserId ? 'sent' : 'received'}`;
     
-    scrollToBottom();
-}
-
-/**
- * Append a single message
- */
-function appendMessage(message) {
-    const messagesList = document.getElementById('messagesList');
-    if (!messagesList) return;
-    
-    const messageElement = createMessageElement(message);
-    messagesList.appendChild(messageElement);
-}
-
-/**
- * Create message element
- */
-function createMessageElement(message) {
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${message.senderId == window.currentUserId ? 'sent' : 'received'}`;
-    
-    if (message.isOptimistic) {
-        messageDiv.classList.add('optimistic');
-    }
-    
-    const time = new Date(message.created_at).toLocaleTimeString('en-US', {
-        hour: '2-digit',
+    const time = new Date(message.created_at);
+    const timeString = time.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
         minute: '2-digit',
-        hour12: false
+        hour12: false 
     });
     
-    let avatarHtml = '';
-    if (message.senderId != window.currentUserId) {
-        avatarHtml = `
-            <div class="message-avatar">
-                <img src="${message.avatar || 'images/profile.jpg'}" 
-                     alt="Avatar"
-                     onerror="this.src='images/profile.jpg'">
-            </div>
-        `;
-    }
-    
-    let statusHtml = '';
-    if (message.senderId == window.currentUserId) {
-        statusHtml = `
-            <span class="message-status">
-                <i class="fas fa-check-double"></i>
-            </span>
-        `;
-    }
-    
-    messageDiv.innerHTML = `
-        ${avatarHtml}
+    messageElement.innerHTML = `
+        ${message.senderId != currentUserId ? `
+            <img src="${message.avatar || 'images/profile.jpg'}" 
+                 alt="${message.firstName || 'User'}" 
+                 class="message-avatar">
+        ` : ''}
         <div class="message-content">
             <div class="message-bubble">
-                <p>${escapeHtml(message.content)}</p>
+                ${escapeHtml(message.content)}
             </div>
-            <div class="message-meta">
-                <span class="message-time">${time}</span>
-                ${statusHtml}
+            <div class="message-time">
+                ${timeString}
             </div>
         </div>
     `;
     
-    return messageDiv;
+    messagesArea.appendChild(messageElement);
 }
 
-/**
- * Remove optimistic messages
- */
-function removeOptimisticMessages() {
-    const optimisticMessages = document.querySelectorAll('.message.optimistic');
-    optimisticMessages.forEach(message => message.remove());
-}
-
-/**
- * Mark messages as read
- */
-async function markMessagesAsRead() {
-    if (!window.currentChatId) return;
+function handleChatSearch(e) {
+    const searchTerm = e.target.value.toLowerCase();
+    const chatItems = document.querySelectorAll('.chat-item');
     
-    try {
-        await fetch('/api/messages/mark-read', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-Token': window.csrfToken
-            },
-            body: JSON.stringify({
-                chat_id: window.currentChatId
-            })
-        });
-    } catch (error) {
-        console.error('Failed to mark messages as read:', error);
-    }
-}
-
-/**
- * Scroll to bottom of messages
- */
-function scrollToBottom() {
-    const messagesList = document.getElementById('messagesList');
-    if (messagesList) {
-        messagesList.scrollTop = messagesList.scrollHeight;
-    }
-}
-
-/**
- * Open new chat modal
- */
-async function openNewChatModal() {
-    const modal = document.getElementById('newChatModal');
-    const friendsList = document.getElementById('friendsList');
-    
-    modal.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-    
-    // Load friends list
-    try {
-        friendsList.innerHTML = `
-            <div class="loading">
-                <i class="fas fa-spinner fa-spin"></i>
-                <p>Loading friends...</p>
-            </div>
-        `;
+    chatItems.forEach(item => {
+        const name = item.querySelector('.chat-name').textContent.toLowerCase();
+        const preview = item.querySelector('.chat-preview').textContent.toLowerCase();
         
-        const response = await fetch('/api/friends', {
-            headers: {
-                'X-CSRF-Token': window.csrfToken
-            }
-        });
-        
-        if (response.ok) {
-            const friends = await response.json();
-            displayFriendsList(friends);
-        } else {
-            throw new Error('Failed to load friends');
-        }
-    } catch (error) {
-        console.error('Failed to load friends:', error);
-        friendsList.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-exclamation-circle"></i>
-                <p>Failed to load friends</p>
-            </div>
-        `;
-    }
-}
-
-/**
- * Display friends list in modal
- */
-function displayFriendsList(friends) {
-    const friendsList = document.getElementById('friendsList');
-    
-    if (friends.length === 0) {
-        friendsList.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-user-friends"></i>
-                <p>No friends to chat with</p>
-            </div>
-        `;
-        return;
-    }
-    
-    friendsList.innerHTML = friends.map(friend => `
-        <div class="friend-item" onclick="startChatWithFriend(${friend.id})">
-            <img src="${friend.avatar || 'images/profile.jpg'}" 
-                 alt="Avatar"
-                 onerror="this.src='images/profile.jpg'">
-            <div class="friend-info">
-                <h4>${escapeHtml(friend.firstName + ' ' + friend.lastName)}</h4>
-                <p>Click to start chatting</p>
-            </div>
-        </div>
-    `).join('');
-}
-
-/**
- * Start chat with friend
- */
-function startChatWithFriend(friendId) {
-    closeNewChatModal();
-    openChat(friendId);
-}
-
-/**
- * Close new chat modal
- */
-function closeNewChatModal() {
-    const modal = document.getElementById('newChatModal');
-    modal.style.display = 'none';
-    document.body.style.overflow = 'auto';
-}
-
-/**
- * Initialize friend search in modal
- */
-function initializeFriendSearch() {
-    const friendSearch = document.getElementById('friendSearch');
-    if (friendSearch) {
-        friendSearch.addEventListener('input', function() {
-            const searchTerm = this.value.toLowerCase();
-            filterFriends(searchTerm);
-        });
-    }
-}
-
-/**
- * Filter friends list
- */
-function filterFriends(searchTerm) {
-    const friendItems = document.querySelectorAll('.friend-item');
-    
-    friendItems.forEach(item => {
-        const friendName = item.querySelector('h4').textContent.toLowerCase();
-        
-        if (friendName.includes(searchTerm)) {
+        if (name.includes(searchTerm) || preview.includes(searchTerm)) {
             item.style.display = 'flex';
         } else {
             item.style.display = 'none';
@@ -625,164 +178,182 @@ function filterFriends(searchTerm) {
     });
 }
 
-/**
- * Show toast notification
- */
-function showToast(type, message) {
-    const container = document.getElementById('toast-container');
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
+function handleUserSearch(e) {
+    const searchTerm = e.target.value.toLowerCase();
+    const userItems = document.querySelectorAll('.user-item');
     
-    const icon = type === 'success' ? 'check-circle' : 
-                 type === 'error' ? 'exclamation-circle' : 'info-circle';
-    
-    toast.innerHTML = `
-        <i class="fas fa-${icon}"></i>
-        <span>${message}</span>
-    `;
-    
-    container.appendChild(toast);
-    
-    // Auto-remove after 4 seconds
-    setTimeout(() => {
-        if (toast.parentNode) {
-            toast.style.animation = 'slideOut 0.3s ease forwards';
-            setTimeout(() => {
-                if (toast.parentNode) {
-                    toast.parentNode.removeChild(toast);
-                }
-            }, 300);
+    userItems.forEach(item => {
+        const name = item.querySelector('span').textContent.toLowerCase();
+        
+        if (name.includes(searchTerm)) {
+            item.style.display = 'flex';
+        } else {
+            item.style.display = 'none';
         }
-    }, 4000);
+    });
 }
 
-/**
- * Escape HTML to prevent XSS
- */
+function startChat(userId) {
+    window.location.href = `/message?start_chat=1&user_id=${userId}`;
+}
+
+function showModal(modal) {
+    if (modal) {
+        modal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function hideModal(modal) {
+    if (modal) {
+        modal.classList.remove('show');
+        document.body.style.overflow = '';
+    }
+}
+
+function scrollToBottom(element) {
+    element.scrollTop = element.scrollHeight;
+}
+
+function showToast(message, type = 'info') {
+    // Create toast if it doesn't exist
+    let toast = document.getElementById('messageToast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'messageToast';
+        toast.className = 'toast';
+        document.body.appendChild(toast);
+    }
+    
+    toast.textContent = message;
+    toast.className = `toast ${type} show`;
+    
+    // Hide after 3 seconds
+    setTimeout(() => {
+        toast.classList.remove('show');
+    }, 3000);
+}
+
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
 }
 
-/**
- * Preview image before sending
- */
-function previewImage(event) {
-    const file = event.target.files[0];
-    const preview = document.getElementById('imagePreview');
-    const previewImg = document.getElementById('previewImg');
-    
-    if (file) {
-        // Validate file type
-        if (!file.type.startsWith('image/')) {
-            showToast('error', 'Please select a valid image file');
-            return;
+// Message polling for real-time updates
+let pollingInterval;
+
+function startMessagePolling() {
+    // Poll every 3 seconds for new messages
+    pollingInterval = setInterval(async () => {
+        try {
+            const response = await fetch(`/api/messages/${chatId}/latest`);
+            if (response.ok) {
+                const data = await response.json();
+                if (data.messages && data.messages.length > 0) {
+                    const messagesArea = document.getElementById('messagesArea');
+                    const lastMessage = messagesArea.lastElementChild;
+                    const lastMessageTime = lastMessage ? 
+                        lastMessage.querySelector('.message-time').textContent : '';
+                    
+                    // Add new messages
+                    data.messages.forEach(message => {
+                        const messageTime = new Date(message.created_at).toLocaleTimeString('en-US', { 
+                            hour: '2-digit', 
+                            minute: '2-digit',
+                            hour12: false 
+                        });
+                        
+                        // Only add if it's newer than the last message
+                        if (messageTime !== lastMessageTime) {
+                            addMessageToUI(message);
+                        }
+                    });
+                    
+                    scrollToBottom(messagesArea);
+                }
+            }
+        } catch (error) {
+            console.error('Error polling messages:', error);
         }
-        
-        // Validate file size (max 5MB)
-        if (file.size > 5 * 1024 * 1024) {
-            showToast('error', 'Image size must be less than 5MB');
-            return;
-        }
-        
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            previewImg.src = e.target.result;
-            preview.style.display = 'block';
-        };
-        reader.readAsDataURL(file);
-    }
+    }, 3000);
 }
 
-/**
- * Remove image preview
- */
-function removeImagePreview() {
-    const preview = document.getElementById('imagePreview');
-    const imageUpload = document.getElementById('imageUpload');
-    
-    preview.style.display = 'none';
-    imageUpload.value = '';
-}
-
-// Cleanup on page unload
-window.addEventListener('beforeunload', function() {
-    if (messagePollingInterval) {
-        clearInterval(messagePollingInterval);
-    }
-    
-    if (typingTimeout) {
-        clearTimeout(typingTimeout);
-    }
-    
-    // Send stop typing indicator
-    if (isTyping) {
-        sendTypingIndicator(false);
+// Clean up polling when leaving the page
+window.addEventListener('beforeunload', () => {
+    if (pollingInterval) {
+        clearInterval(pollingInterval);
     }
 });
 
-// Add CSS for typing indicator
-const style = document.createElement('style');
-style.textContent = `
-    .typing-indicator {
-        animation: fadeIn 0.3s ease;
+// Handle online/offline status
+window.addEventListener('online', () => {
+    if (chatId && !pollingInterval) {
+        startMessagePolling();
     }
-    
-    .typing-dots {
-        display: flex;
-        gap: 4px;
-        padding: 8px 0;
+});
+
+window.addEventListener('offline', () => {
+    if (pollingInterval) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
     }
-    
-    .typing-dots span {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: currentColor;
-        opacity: 0.4;
-        animation: typingDot 1.4s infinite;
-    }
-    
-    .typing-dots span:nth-child(2) {
-        animation-delay: 0.2s;
-    }
-    
-    .typing-dots span:nth-child(3) {
-        animation-delay: 0.4s;
-    }
-    
-    @keyframes typingDot {
-        0%, 60%, 100% {
-            opacity: 0.4;
-            transform: scale(1);
-        }
-        30% {
-            opacity: 1;
-            transform: scale(1.2);
+});
+
+// Emoji picker functionality (basic)
+document.addEventListener('click', function(e) {
+    if (e.target.closest('.emoji-btn')) {
+        const messageInput = document.getElementById('messageInput');
+        if (messageInput) {
+            // Simple emoji insertion - you can expand this with a proper emoji picker
+            const emojis = ['😀', '😂', '😍', '🤔', '👍', '❤️', '🎉', '🔥'];
+            const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+            messageInput.value += randomEmoji;
+            messageInput.focus();
         }
     }
-    
-    @keyframes fadeIn {
-        from {
-            opacity: 0;
-            transform: translateY(10px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    
-    @keyframes slideOut {
-        to {
+});
+
+// Add toast styles if not already present
+if (!document.querySelector('#toastStyles')) {
+    const toastStyles = document.createElement('style');
+    toastStyles.id = 'toastStyles';
+    toastStyles.textContent = `
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #14171a;
+            color: white;
+            padding: 16px 20px;
+            border-radius: 12px;
+            font-weight: 600;
+            z-index: 10000;
             transform: translateX(100%);
-            opacity: 0;
+            transition: transform 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         }
-    }
-    
-    .message.optimistic {
-        opacity: 0.7;
-    }
-`;
-document.head.appendChild(style);
+        
+        .toast.show {
+            transform: translateX(0);
+        }
+        
+        .toast.success {
+            background: #17bf63;
+        }
+        
+        .toast.error {
+            background: #e0245e;
+        }
+        
+        @media (max-width: 480px) {
+            .toast {
+                bottom: 15px;
+                right: 15px;
+                left: 15px;
+                text-align: center;
+            }
+        }
+    `;
+    document.head.appendChild(toastStyles);
+}

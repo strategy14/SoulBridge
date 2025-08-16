@@ -47,7 +47,7 @@ function initializePostInteractions() {
     });
     
     // Comment form handlers
-    document.addEventListener('submit', function(e) {
+     document.body.addEventListener('submit', function(e) {
         if (e.target.classList.contains('comment-form')) {
             e.preventDefault();
             submitQuickComment(e);

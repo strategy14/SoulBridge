@@ -9,7 +9,45 @@ let commentPollingInterval = null;
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-    initializeComments();
+    document.body.addEventListener('submit', async function(e) {
+        if (e.target.classList.contains('comment-form')) {
+            e.preventDefault();
+            const form = e.target;
+            const commentInput = form.querySelector('textarea[name="comment"]');
+            const commentText = commentInput.value.trim();
+
+            if (!commentText) {
+                showToast('Please enter a comment.', 'error');
+                return;
+            }
+
+            // Prepare data
+            const postId = form.querySelector('input[name="post_id"]').value;
+            const csrfToken = form.querySelector('input[name="csrf_token"]').value;
+
+            // Send AJAX request
+            try {
+                const response = await fetch('/commentHandler', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `post_id=${encodeURIComponent(postId)}&comment=${encodeURIComponent(commentText)}&csrf_token=${encodeURIComponent(csrfToken)}`
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    showToast('Comment successfully added!', 'success');
+                    commentInput.value = '';
+                    // Option 1: Reload comments via AJAX (recommended)
+                    reloadComments(postId);
+                    // Option 2: Or reload page: location.reload();
+                } else {
+                    showToast(result.message || 'Failed to add comment.', 'error');
+                }
+            } catch (err) {
+                showToast('Network error. Please try again.', 'error');
+            }
+        }
+    });
 });
 
 /**
@@ -387,12 +425,22 @@ function replyToComment(commentId) {
  * Delete comment
  */
 async function deleteComment(commentId) {
+    // Prevent deleting optimistic comments (not yet saved on server)
+    if (typeof commentId === 'string' && commentId.startsWith('temp_')) {
+        showToast('error', 'Cannot delete comment before it is saved.');
+        return;
+    }
+
     if (!confirm('Are you sure you want to delete this comment?')) {
         return;
     }
-    
+
     const commentElement = document.querySelector(`[data-comment-id="${commentId}"]`);
-    
+    if (!commentElement) {
+        showToast('error', 'Comment not found.');
+        return;
+    }
+
     try {
         const response = await fetch('/api/comment-delete', {
             method: 'POST',
@@ -404,9 +452,16 @@ async function deleteComment(commentId) {
                 comment_id: parseInt(commentId)
             })
         });
-        
+
+        // Enhanced error handling
+        if (!response.ok) {
+            console.error(`Delete comment failed: ${response.status} ${response.url}`);
+            showToast('error', `Failed to connect to server (${response.status}). Please try again.`);
+            return;
+        }
+
         const data = await response.json();
-        
+
         if (data.success) {
             // Remove comment from UI
             commentElement.style.animation = 'commentSlideOut 0.3s ease forwards';
@@ -422,7 +477,7 @@ async function deleteComment(commentId) {
         }
     } catch (error) {
         console.error('Delete comment error:', error);
-        showToast('error', 'Network error occurred');
+        showToast('error', 'Network error occurred. Please check your connection or try again later.');
     }
 }
 
@@ -714,7 +769,7 @@ function escapeHtml(text) {
 /**
  * Show toast notification
  */
-function showToast(type, message) {
+function showToast(message, type) {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
@@ -771,3 +826,17 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+/**
+ * Example reloadComments function
+ */
+async function reloadComments(postId) {
+    try {
+        const response = await fetch(`/comments?post_id=${postId}&ajax=1`);
+        const html = await response.text();
+        const commentsList = document.getElementById('commentsList');
+        if (commentsList) commentsList.innerHTML = html;
+    } catch (err) {
+        showToast('Could not reload comments.', 'error');
+    }
+}

@@ -123,7 +123,7 @@
 
                     <!-- Add Comment Form -->
                     <div class="add-comment-section">
-                        <form class="comment-form" onsubmit="submitComment(event)">
+                        <form class="comment-form">
                             <div class="comment-input-container">
                                 <div class="profile-photo">
                                     <img src="<?= htmlspecialchars($user['avatar'] ?? 'images/profile.jpg') ?>" 
@@ -175,7 +175,7 @@
                                         <div class="comment-bubble">
                                             <div class="comment-header">
                                                 <a href="profile?id=<?= $comment['userId'] ?>" class="commenter-name">
-                                                    <?= htmlspecialchars($comment['username']) ?>
+                                                    <?= htmlspecialchars($comment['firstName'].' '.$comment['lastName']) ?>
                                                 </a>
                                                 <time class="comment-time" datetime="<?= $comment['created_at'] ?>">
                                                     <?= formatTimeAgo($comment['created_at']) ?>

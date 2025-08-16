@@ -91,21 +91,25 @@
                             <p class="story-name">Your Story</p>
                         </div>
                         
-                        <!-- Display Active Stories -->
-                        <?php 
-                        $stories = $queryBuilder->getActiveStories();
-                        foreach($stories as $story): 
-                        ?>
-                        <div class="story" data-story-id="<?= $story['id'] ?>" onclick="openStoryViewer(<?= $story['id'] ?>)">
-                            <div class="story-image">
-                                <img src="<?= htmlspecialchars($story['avatar'] ?? 'images/profile.jpg') ?>" 
-                                     alt="Story"
-                                     onerror="this.src='images/profile.jpg'">
+                        <!-- Grouped user stories -->
+                        <?php foreach($userStories as $userId => $userData): ?>
+                            <div class="story"
+                                 data-user-id="<?= $userId ?>"
+                                 data-stories='<?= htmlspecialchars(json_encode($userData['stories']), ENT_QUOTES, 'UTF-8') ?>'
+                                 data-story-username="<?= htmlspecialchars($userData['user']['firstName']) ?>"
+                                 data-story-avatar="<?= htmlspecialchars($userData['user']['avatar'] ?? 'images/profile.jpg') ?>">
+                                <div class="story-image">
+                                    <img src="<?= htmlspecialchars($userData['user']['avatar'] ?? 'images/profile.jpg') ?>" alt="Story" onerror="this.src='images/profile.jpg'">
+                                    <span class="story-count-badge"><?= count($userData['stories']) ?></span>
+                                </div>
+                                <p class="story-name"><?= htmlspecialchars($userData['user']['firstName']) ?></p>
                             </div>
-                            <p class="story-name"><?= htmlspecialchars($story['firstName']) ?></p>
-                        </div>
                         <?php endforeach; ?>
                     </div>
+
+                    <!-- Story Navigation Buttons -->
+                    <button class="story-scroll-btn story-scroll-left"><i class="fas fa-chevron-left"></i></button>
+                    <button class="story-scroll-btn story-scroll-right"><i class="fas fa-chevron-right"></i></button>
                 </section>
 
                 <!-- Hidden Story Upload Form -->
@@ -246,8 +250,7 @@
 
                                     <div class="post-actions">
                                         <button class="action-btn like-btn <?= $liked ? 'liked' : '' ?>" 
-                                                data-post-id="<?= $post['post_id'] ?>"
-                                                onclick="togglePostLike(<?= $post['post_id'] ?>)">
+                                                data-post-id="<?= $post['post_id'] ?>">
                                             <i class="<?= $liked ? 'fas' : 'far' ?> fa-heart"></i>
                                             <span class="like-count"><?= $like_count ?></span>
                                         </button>
@@ -258,7 +261,7 @@
                                         </button>
                                         <button class="action-btn share-btn"
                                                 data-post-id="<?= $post['post_id'] ?>">
-                                                onclick="openShareModal(<?= $post['post_id'] ?>)">
+                                                <onclick="openShareModal(<?= $post['post_id'] ?>)">
                                             <i class="fas fa-share"></i>
                                             <span>Share</span>
                                         </button>
@@ -271,17 +274,17 @@
                                                  alt="Your Profile"
                                                  onerror="this.src='images/profile.jpg'">
                                         </div>
-                                        <form class="comment-form" data-post-id="<?= $post['post_id'] ?>" onsubmit="submitQuickComment(event)">
-                                            <input type="text" 
-                                                   placeholder="Write a comment..." 
-                                                   name="comment" 
-                                                   class="comment-input"
-                                                   required>
-                                            <button type="submit" class="comment-submit">
-                                                <i class="fas fa-paper-plane"></i>
-                                            </button>
-                                            <input type="hidden" name="post_id" value="<?= $post['post_id'] ?>">
-                                            <input type="hidden" name="csrf_token" value="<?= $data['csrf_token'] ?>">
+                                        <form class="comment-form" data-post-id="<?= $post['post_id'] ?>">
+                                           <input type="text" 
+                                                  placeholder="Write a comment..." 
+                                                  name="comment" 
+                                                  class="comment-input"
+                                                  required>
+                                           <button type="submit" class="comment-submit">
+                                               <i class="fas fa-paper-plane"></i>
+                                           </button>
+                                           <input type="hidden" name="post_id" value="<?= $post['post_id'] ?>">
+                                           <input type="hidden" name="csrf_token" value="<?= $data['csrf_token'] ?>">
                                         </form>
                                     </div>
                                 </footer>
