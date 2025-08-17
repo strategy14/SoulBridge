@@ -155,6 +155,65 @@
     return ok;
   }
 
+  function showSignupForm() {
+    const loginForm = document.getElementById('login-form');
+    const signupForm = document.getElementById('signup-form');
+
+    if (loginForm && signupForm) {
+        loginForm.classList.remove('active');
+        signupForm.classList.add('active');
+
+        // Focus first input
+        setTimeout(() => {
+            const firstInput = signupForm.querySelector('.form-input');
+            if (firstInput) {
+                firstInput.focus();
+            }
+        }, 100);
+    }
+  }
+
+  /**
+   * Show login form
+   */
+  function showLoginForm() {
+    const loginForm = document.getElementById('login-form');
+    const signupForm = document.getElementById('signup-form');
+
+    if (loginForm && signupForm) {
+        signupForm.classList.remove('active');
+        loginForm.classList.add('active');
+
+        // Focus first input
+        setTimeout(() => {
+            const firstInput = loginForm.querySelector('.form-input');
+            if (firstInput) {
+                firstInput.focus();
+            }
+        }, 100);
+    }
+  }
+
+  /**
+   * Toggle password visibility
+   */
+  function togglePassword(inputName) {
+    const input = document.querySelector(`input[name="${inputName}"]`);
+    const button = input.nextElementSibling;
+    const icon = button.querySelector('i');
+    
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+    } else {
+        input.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+    }
+  }
+
+
   // Submit handler (safe)
   function handleFormSubmit(event) {
     event.preventDefault();
@@ -253,11 +312,18 @@
       showToast('error', 'Script init failed (see console).');
     }
   });
-
-  // expose for debug if needed
+    // expose for debug if needed
   window.__AuthUI = {
     includeButtonValueForSubmit,
-    getFormByVariants
+    getFormByVariants,
+    showSignupForm,
+    showLoginForm,
+    togglePassword
   };
+
+  // expose directly for inline onclick handlers
+  window.showSignupForm = showSignupForm;
+  window.showLoginForm = showLoginForm;
+  window.togglePassword = togglePassword;
 
 })();
