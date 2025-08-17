@@ -4,11 +4,90 @@ class PagesController {
     public function index() {
         require_once 'view/index.view.php';
     }
-    public function login() {
-        require_once 'view/login.view.php';
+    public function authenticate() {
+        $queryBuilder = new queryBuilder();
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    if (isset($_POST['login'])) {
+        $email = trim($_POST['email']);
+        $password = $_POST['password'];
+        $rememberMe = isset($_POST['remember_me']);
+
+        if (empty($email) || empty($password)) {
+            $error = 'Please enter both email and password.';
+        } else {
+            $user = $queryBuilder->login($email, $password);
+            if ($user) {
+                $_SESSION['userData'] = $queryBuilder->getUserData($user['id']);
+                $_SESSION['user_email'] = $user['email'];
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['csrf_token'] = SessionManager::generateCSRFToken();
+
+                if ($rememberMe) {
+                    $token = bin2hex(random_bytes(32));
+                    setcookie('remember_token', $token, time() + (30 * 24 * 60 * 60), '/', '', false, true);
+                    $queryBuilder->saveRememberToken($user['id'], $token);
+                }
+
+                header("Location: /home");
+                exit();
+            } else {
+                $error = 'Invalid email or password.';
+            }
+        }
     }
-    public function signup() {
-        require_once 'view/signup.view.php';
+
+    // REGISTER
+    if (isset($_POST['signup'])) {
+        $fname    = trim($_POST['user_firstname']);
+        $lname    = trim($_POST['user_lastname']);
+        $birthday = $_POST['selectyear'] . '-' . $_POST['selectmonth'] . '-' . $_POST['selectday'];
+        $gender   = $_POST['gender'];
+        $email    = trim($_POST['email']);
+        $password = $_POST['password'];
+        $confirm  = $_POST['confirm_password'] ?? '';
+
+        // Basic validation
+        if (empty($fname) || empty($lname) || empty($birthday) || empty($gender) || empty($email) || empty($password)) {
+            $error = 'Please fill in all required fields.';
+        }
+        if ($password !== $confirm) {
+            $error = 'Passwords do not match.';
+        }
+
+        $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+
+        $existing = $queryBuilder->select('users', '*', 'email = :email', ['email' => $email]);
+        if ($existing && count($existing) > 0) {
+            $error = 'Your email already exists.';
+        } else {
+            $result = $queryBuilder->insert('users', [
+                'firstName' => $fname,
+                'lastName'  => $lname,
+                'birthdate' => $birthday,
+                'gender'    => $gender,
+                'email'     => $email,
+                'password'  => $hashedPassword
+            ]);
+            if ($result) {
+                $user = $queryBuilder->select('users', 'id', 'email = :email', ['email' => $email]);
+                if ($user && count($user) > 0) {
+                    $_SESSION['user_id'] = $user[0]['id'];
+                    $_SESSION['user_email'] = $email;
+                    $_SESSION['csrf_token'] = SessionManager::generateCSRFToken();
+                    echo "<script>
+                        alert('Welcome to SoulBridge! Your account has been created successfully.');
+                        window.location.href = '/home';
+                    </script>";
+                } else {
+                    $error = 'Error fetching user after signup.';
+                }
+            } else {
+                $error = 'Error during signup.';
+            }
+        }
+    }
+}
     }
     public function profile() {
         if (!isset($_SESSION['user_id'])) {

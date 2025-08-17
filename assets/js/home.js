@@ -355,11 +355,23 @@ function initializePrivacyToggle() {
 function initializeFriendRequests() {
     document.addEventListener('click', function(e) {
         if (e.target.classList.contains('accept-btn')) {
-            const userId = e.target.closest('.friend-request').dataset.userId;
-            handleFriendRequest('accept', userId);
+            e.stopImmediatePropagation();
+            const btn = e.target;
+            if (btn.disabled) return; // Prevent double click
+            btn.disabled = true;
+            const userId = btn.closest('.friend-request').dataset.userId;
+            handleFriendRequest('accept', userId).finally(() => {
+                btn.disabled = false;
+            });
         } else if (e.target.classList.contains('decline-btn')) {
-            const userId = e.target.closest('.friend-request').dataset.userId;
-            handleFriendRequest('decline', userId);
+            e.stopImmediatePropagation();
+            const btn = e.target;
+            if (btn.disabled) return; // Prevent double click
+            btn.disabled = true;
+            const userId = btn.closest('.friend-request').dataset.userId;
+            handleFriendRequest('decline', userId).finally(() => {
+                btn.disabled = false;
+            });
         }
     });
 }

@@ -20,6 +20,13 @@
             return false;
         }
 
+        public function saveRememberToken($userId, $token) {
+            $hashedToken = hash('sha256', $token);
+            $sql = "UPDATE users SET remember_token = :token WHERE id = :user_id";
+            $stmt = $this->pdo->prepare($sql);
+            return $stmt->execute(['token' => $hashedToken, 'user_id' => $userId]);
+        }
+
         public function select($table, $columns = '*', $where = '', $params = []) {
             $sql = "SELECT $columns FROM $table";
             if ($where) {

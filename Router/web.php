@@ -20,8 +20,7 @@ return $routes = [
         
     ],
     'POST' => [
-        '/login' => 'PagesController@login',
-        '/signup' => 'PagesController@signup',
+        '/authenticate' => 'PagesController@authenticate',
         '/story-upload' => 'PagesController@storyUpload',
         '/post-create' => 'PagesController@postHandler',
         '/like' => 'PagesController@likePost',
