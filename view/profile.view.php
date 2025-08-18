@@ -31,7 +31,6 @@
                 <img src="<?= htmlspecialchars($user['coverPhoto'] ?? 'images/SB.png') ?>" 
                      class="cover-photo" 
                      alt="Cover Photo"
-                     onclick="openImageModal('<?= htmlspecialchars($user['coverPhoto'] ?? 'images/SB.png') ?>')"
                      onerror="this.src='images/SB.png'">
                 <div class="cover-overlay"></div>
             </div>
@@ -42,7 +41,6 @@
                         <img src="<?= htmlspecialchars($user['avatar'] ?? 'images/profile.jpg') ?>" 
                              alt="Profile Picture"
                              class="profile-avatar-large"
-                             onclick="openImageModal('<?= htmlspecialchars($user['avatar'] ?? 'images/profile.jpg') ?>')"
                              onerror="this.src='images/profile.jpg'">
                         <?php if ($profile_user_id == $current_user_id): ?>
                             <button class="edit-avatar-btn" onclick="window.location.href='/edit-profile'">
@@ -55,17 +53,6 @@
                 <div class="profile-details">
                     <h1 class="profile-name"><?= htmlspecialchars($user['firstName'] . ' ' . $user['lastName']) ?></h1>
                     <p class="profile-username">@<?= htmlspecialchars(strtolower(str_replace(' ', '', $user['firstName'] . $user['lastName']))) ?></p>
-                    
-                    <!-- Zodiac Sign -->
-                    <?php 
-                    $zodiacSign = getZodiacSign($user['birthdate'] ?? '');
-                    if ($zodiacSign): 
-                    ?>
-                        <div class="zodiac-info">
-                            <i class="fas fa-star"></i>
-                            <span><?= $zodiacSign ?></span>
-                        </div>
-                    <?php endif; ?>
                     
                     <!-- Profile Stats -->
                     <div class="profile-stats">
@@ -82,31 +69,6 @@
                             <span class="stat-label">Likes</span>
                         </div>
                     </div>
-                    
-                    <!-- Profile Viewers (only for own profile) -->
-                    <?php if ($profile_user_id == $current_user_id && !empty($profile_viewers)): ?>
-                        <div class="profile-viewers">
-                            <h4><i class="fas fa-eye"></i> Recent Profile Views</h4>
-                            <div class="viewers-list">
-                                <?php foreach (array_slice($profile_viewers, 0, 5) as $viewer): ?>
-                                    <div class="viewer-item">
-                                        <img src="<?= htmlspecialchars($viewer['avatar'] ?? 'images/profile.jpg') ?>" 
-                                             alt="<?= htmlspecialchars($viewer['firstName']) ?>"
-                                             onerror="this.src='images/profile.jpg'">
-                                        <div class="viewer-info">
-                                            <span class="viewer-name"><?= htmlspecialchars($viewer['firstName'] . ' ' . $viewer['lastName']) ?></span>
-                                            <span class="viewer-time"><?= formatTimeAgo($viewer['viewed_at']) ?></span>
-                                        </div>
-                                    </div>
-                                <?php endforeach; ?>
-                                <?php if (count($profile_viewers) > 5): ?>
-                                    <div class="view-all-viewers">
-                                        <span>+<?= count($profile_viewers) - 5 ?> more</span>
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                    <?php endif; ?>
                     
                     <!-- Profile Bio -->
                     <?php if (!empty($user['bio']) || !empty($user['location'])): ?>
@@ -260,27 +222,12 @@
                                             
                                             <button class="action-btn share-btn">
                                                 <i class="far fa-share"></i>
-                                            <span>Like</span>
+                                            </button>
                                         </div>
                                         
-                                        <button class="action-btn share-btn" data-post-id="<?= $post['post_id'] ?>" onclick="openShareModal(<?= $post['post_id'] ?>)">
-                                            <span>Comment</span>
-                                            <span>Share</span>
+                                        <button class="action-btn bookmark-btn">
+                                            <i class="far fa-bookmark"></i>
                                         </button>
-                                    </div>
-                                    
-                                    <!-- Post Stats -->
-                                    <div class="post-stats">
-                                        <div class="stats-row">
-                                            <span class="stat-item">
-                                                <i class="fas fa-heart text-red"></i>
-                                                <span class="like-count"><?= $like_count ?></span>
-                                            </span>
-                                            <span class="stat-item">
-                                                <i class="fas fa-comment text-blue"></i>
-                                                <span class="comment-count"><?= $comment_count ?></span>
-                                            </span>
-                                        </div>
                                     </div>
                                     
                                     <!-- Quick Comment Form -->
@@ -314,7 +261,7 @@
     </div>
     
     <!-- Image Modal -->
-    <div class="image-modal" id="imageModal" style="display: none;" onclick="closeImageModal()">
+    <div class="image-modal" id="imageModal">
         <div class="modal-backdrop" onclick="closeImageModal()"></div>
         <div class="modal-content">
             <button class="modal-close" onclick="closeImageModal()">
@@ -324,87 +271,7 @@
         </div>
     </div>
     
-    <!-- Share Modal -->
-    <div id="shareModal" class="share-modal" style="display: none;">
-        <div class="share-modal-backdrop" onclick="closeShareModal()"></div>
-        <div class="share-content">
-            <div class="share-header">
-                <h3>Share Post</h3>
-                <button class="close-share-btn" onclick="closeShareModal()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="share-options">
-                <button class="share-option" onclick="copyPostLink()">
-                    <i class="fas fa-link"></i>
-                    <span>Copy Link</span>
-                </button>
-                <button class="share-option" onclick="shareToFriends()">
-                    <i class="fas fa-user-friends"></i>
-                    <span>Share to Friends</span>
-                </button>
-            </div>
-        </div>
-    </div>
-    
     <!-- Toast for notifications -->
     <div id="toast" class="toast"></div>
-    
-    <script>
-        // Pass PHP data to JavaScript
-        window.csrfToken = '<?= $_SESSION['csrf_token'] ?>';
-        window.currentUserId = <?= $current_user_id ?>;
-        window.profileUserId = <?= $profile_user_id ?>;
-        
-        let sharePostId = null;
-    </script>
 </body>
 </html>
-
-<?php
-/**
- * Helper function to get zodiac sign
- */
-function getZodiacSign($birthdate) {
-    if (empty($birthdate)) return '';
-    
-    $date = new DateTime($birthdate);
-    $month = (int)$date->format('n');
-    $day = (int)$date->format('j');
-    
-    $zodiacSigns = [
-        ['name' => 'Capricorn', 'start' => [12, 22], 'end' => [1, 19]],
-        ['name' => 'Aquarius', 'start' => [1, 20], 'end' => [2, 18]],
-        ['name' => 'Pisces', 'start' => [2, 19], 'end' => [3, 20]],
-        ['name' => 'Aries', 'start' => [3, 21], 'end' => [4, 19]],
-        ['name' => 'Taurus', 'start' => [4, 20], 'end' => [5, 20]],
-        ['name' => 'Gemini', 'start' => [5, 21], 'end' => [6, 20]],
-        ['name' => 'Cancer', 'start' => [6, 21], 'end' => [7, 22]],
-        ['name' => 'Leo', 'start' => [7, 23], 'end' => [8, 22]],
-        ['name' => 'Virgo', 'start' => [8, 23], 'end' => [9, 22]],
-        ['name' => 'Libra', 'start' => [9, 23], 'end' => [10, 22]],
-        ['name' => 'Scorpio', 'start' => [10, 23], 'end' => [11, 21]],
-        ['name' => 'Sagittarius', 'start' => [11, 22], 'end' => [12, 21]]
-    ];
-    
-    foreach ($zodiacSigns as $sign) {
-        if ($sign['name'] === 'Capricorn') {
-            if (($month == 12 && $day >= 22) || ($month == 1 && $day <= 19)) {
-                return $sign['name'];
-            }
-        } else {
-            $startMonth = $sign['start'][0];
-            $startDay = $sign['start'][1];
-            $endMonth = $sign['end'][0];
-            $endDay = $sign['end'][1];
-            
-            if (($month == $startMonth && $day >= $startDay) || 
-                ($month == $endMonth && $day <= $endDay)) {
-                return $sign['name'];
-            }
-        }
-    }
-    
-    return '';
-}
-?>

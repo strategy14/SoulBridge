@@ -16,14 +16,6 @@ function initializeMessages() {
         messageForm.addEventListener('submit', handleMessageSubmit);
     }
     
-    // Handle attachment button
-    const attachmentBtn = document.querySelector('.attachment-btn');
-    if (attachmentBtn) {
-        attachmentBtn.addEventListener('click', () => {
-            document.getElementById('messageMedia').click();
-        });
-    }
-    
     // Handle new chat modal
     const newChatBtn = document.getElementById('newChatBtn');
     const startChatBtn = document.getElementById('startChatBtn');
@@ -89,10 +81,8 @@ async function handleMessageSubmit(e) {
     const formData = new FormData(form);
     const messageInput = form.querySelector('input[name="message"]');
     const sendBtn = form.querySelector('.send-btn');
-    const mediaInput = document.getElementById('messageMedia');
     
-    if (!messageInput.value.trim() && !mediaInput.files[0]) {
-        showToast('Please enter a message or select media', 'error');
+    if (!messageInput.value.trim()) {
         return;
     }
     
@@ -101,56 +91,34 @@ async function handleMessageSubmit(e) {
     sendBtn.disabled = true;
     sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
     
-    // Add optimistic message to UI
-    const messageText = messageInput.value.trim();
-    const mediaFile = mediaInput.files[0];
-    
-    if (messageText || mediaFile) {
-        const optimisticMessage = {
-            content: messageText,
-            senderId: currentUserId,
-            created_at: new Date().toISOString(),
-            media_path: mediaFile ? URL.createObjectURL(mediaFile) : null,
-            media_type: mediaFile ? (mediaFile.type.includes('gif') ? 'gif' : 'image') : 'text',
-            isOptimistic: true
-        };
-        
-        addMessageToUI(optimisticMessage);
-        
-        // Clear inputs
-        messageInput.value = '';
-        removeMessageMediaPreview();
-        
-        // Scroll to bottom
-        const messagesArea = document.getElementById('messagesArea');
-        if (messagesArea) {
-            scrollToBottom(messagesArea);
-        }
-    }
-    
     try {
         const response = await fetch('/sendMessage', {
             method: 'POST',
             body: formData
         });
         
-        const data = await response.json();
-        
-        if (data.success) {
-            // Remove optimistic message and add real message
-            removeOptimisticMessages();
+        if (response.ok) {
+            // Clear input
+            messageInput.value = '';
             
-            if (data.message) {
-                addMessageToUI(data.message);
-                scrollToBottom(document.getElementById('messagesArea'));
+            // Add message to UI immediately for better UX
+            addMessageToUI({
+                content: formData.get('message'),
+                senderId: currentUserId,
+                created_at: new Date().toISOString(),
+                isSent: true
+            });
+            
+            // Scroll to bottom
+            const messagesArea = document.getElementById('messagesArea');
+            if (messagesArea) {
+                scrollToBottom(messagesArea);
             }
         } else {
-            removeOptimisticMessages();
-            throw new Error(data.error || 'Failed to send message');
+            throw new Error('Failed to send message');
         }
     } catch (error) {
         console.error('Error sending message:', error);
-        removeOptimisticMessages();
         showToast('Failed to send message', 'error');
     } finally {
         // Re-enable form
@@ -161,17 +129,12 @@ async function handleMessageSubmit(e) {
     }
 }
 
-function removeOptimisticMessages() {
-    const optimisticMessages = document.querySelectorAll('.message.optimistic');
-    optimisticMessages.forEach(msg => msg.remove());
-}
-
 function addMessageToUI(message) {
     const messagesArea = document.getElementById('messagesArea');
     if (!messagesArea) return;
     
     const messageElement = document.createElement('div');
-    messageElement.className = `message ${message.senderId == currentUserId ? 'sent' : 'received'}${message.isOptimistic ? ' optimistic' : ''}`;
+    messageElement.className = `message ${message.senderId == currentUserId ? 'sent' : 'received'}`;
     
     const time = new Date(message.created_at);
     const timeString = time.toLocaleTimeString('en-US', { 
@@ -179,13 +142,6 @@ function addMessageToUI(message) {
         minute: '2-digit',
         hour12: false 
     });
-    
-    let mediaContent = '';
-    if (message.media_path) {
-        if (message.media_type === 'image' || message.media_type === 'gif') {
-            mediaContent = `<img src="${message.media_path}" alt="Shared image" class="message-media" onclick="openImageModal('${message.media_path}')">`;
-        }
-    }
     
     messageElement.innerHTML = `
         ${message.senderId != currentUserId ? `
@@ -195,8 +151,7 @@ function addMessageToUI(message) {
         ` : ''}
         <div class="message-content">
             <div class="message-bubble">
-                ${mediaContent}
-                ${message.content ? `<div class="message-text">${escapeHtml(message.content)}</div>` : ''}
+                ${escapeHtml(message.content)}
             </div>
             <div class="message-time">
                 ${timeString}
@@ -205,34 +160,6 @@ function addMessageToUI(message) {
     `;
     
     messagesArea.appendChild(messageElement);
-}
-
-function previewMessageMedia(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    const preview = document.getElementById('messageMediaPreview');
-    const previewImg = document.getElementById('previewMessageImg');
-    
-    if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            previewImg.src = e.target.result;
-            previewImg.style.display = 'block';
-            preview.style.display = 'block';
-        };
-        reader.readAsDataURL(file);
-    }
-}
-
-function removeMessageMediaPreview() {
-    const preview = document.getElementById('messageMediaPreview');
-    const previewImg = document.getElementById('previewMessageImg');
-    const mediaInput = document.getElementById('messageMedia');
-    
-    previewImg.src = '';
-    preview.style.display = 'none';
-    mediaInput.value = '';
 }
 
 function handleChatSearch(e) {
@@ -315,37 +242,58 @@ function escapeHtml(text) {
 
 // Message polling for real-time updates
 let pollingInterval;
-let lastMessageTime = null;
+let pollingErrorCount = 0;
+const MAX_POLLING_ERRORS = 5;
 
 function startMessagePolling() {
-    // Poll every 2 seconds for new messages
+    pollingErrorCount = 0; // reset on start
+    // Poll every 3 seconds for new messages
     pollingInterval = setInterval(async () => {
         try {
-            const response = await fetch(`/api/messages/${chatId}/latest?since=${lastMessageTime || 0}`, {
-                headers: {
-                    'X-CSRF-Token': window.csrfToken
-                }
-            });
-            
+            // Make sure this endpoint exists and is correct in your backend:
+            // /api/messages/:chatId/latest
+            const response = await fetch(`/api/messages/${chatId}/latest`);
             if (response.ok) {
+                pollingErrorCount = 0; // reset on success
                 const data = await response.json();
-                
                 if (data.messages && data.messages.length > 0) {
+                    const messagesArea = document.getElementById('messagesArea');
+                    const lastMessage = messagesArea.lastElementChild;
+                    const lastMessageTime = lastMessage ? 
+                        lastMessage.querySelector('.message-time').textContent : '';
+                    
+                    // Add new messages
                     data.messages.forEach(message => {
-                        // Only add messages from other users (avoid duplicating our own)
-                        if (message.senderId != currentUserId) {
+                        const messageTime = new Date(message.created_at).toLocaleTimeString('en-US', { 
+                            hour: '2-digit', 
+                            minute: '2-digit',
+                            hour12: false 
+                        });
+                        
+                        // Only add if it's newer than the last message
+                        if (messageTime !== lastMessageTime) {
                             addMessageToUI(message);
                         }
-                        lastMessageTime = message.created_at;
                     });
                     
-                    scrollToBottom(document.getElementById('messagesArea'));
+                    scrollToBottom(messagesArea);
+                }
+            } else {
+                pollingErrorCount++;
+                if (pollingErrorCount >= MAX_POLLING_ERRORS) {
+                    clearInterval(pollingInterval);
+                    showToast('Message updates stopped due to repeated errors.', 'error');
                 }
             }
         } catch (error) {
+            pollingErrorCount++;
             console.error('Error polling messages:', error);
+            if (pollingErrorCount >= MAX_POLLING_ERRORS) {
+                clearInterval(pollingInterval);
+                showToast('Message updates stopped due to repeated errors.', 'error');
+            }
         }
-    }, 2000);
+    }, 3000);
 }
 
 // Clean up polling when leaving the page

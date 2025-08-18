@@ -9,7 +9,6 @@ require_once 'Router/request.php';
 require_once 'Router/router.php';
 require_once 'Controller/PagesController.php';
 
-// Start secure session
 SessionManager::start();
 
 $queryBuilder = new queryBuilder();

@@ -125,14 +125,12 @@
                     
                     <!-- Message Input -->
                     <div class="message-input-area">
-                        <form id="messageForm" method="POST" action="/sendMessage" enctype="multipart/form-data">
+                        <form id="messageForm" method="POST" action="/sendMessage">
                             <input type="hidden" name="chat_id" value="<?= $_GET['chat_id'] ?>">
-                            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                             <div class="input-wrapper">
                                 <button type="button" class="attachment-btn">
                                     <i class="fas fa-plus"></i>
                                 </button>
-                                <input type="file" id="messageMedia" name="message_media" accept="image/*,image/gif" style="display: none;" onchange="previewMessageMedia(event)">
                                 <input type="text" 
                                        name="message" 
                                        placeholder="Type a message..." 
@@ -146,16 +144,6 @@
                                 <button type="submit" class="send-btn">
                                     <i class="fas fa-paper-plane"></i>
                                 </button>
-                            </div>
-                            
-                            <!-- Media Preview -->
-                            <div class="message-media-preview" id="messageMediaPreview" style="display: none;">
-                                <div class="preview-container">
-                                    <img id="previewMessageImg" src="" alt="Preview" style="display: none;">
-                                    <button type="button" class="remove-preview" onclick="removeMessageMediaPreview()">
-                                        <i class="fas fa-times"></i>
-                                    </button>
-                                </div>
                             </div>
                         </form>
                     </div>
