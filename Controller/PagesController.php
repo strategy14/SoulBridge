@@ -712,16 +712,25 @@ class PagesController {
 }
     public function sendMessage() {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_SESSION['user_id'])) {
-            header('Location: /');
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'error' => 'Unauthorized']);
             exit();
         }
+        
+        header('Content-Type: application/json');
         
         $chat_id = (int)($_POST['chat_id'] ?? 0);
         $message = trim($_POST['message'] ?? '');
         $user_id = (int)$_SESSION['user_id'];
         
-        if (empty($message) || $chat_id <= 0) {
-            header("Location: /message?chat_id=$chat_id&error=empty_message");
+        // Validate CSRF token
+        if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+            echo json_encode(['success' => false, 'error' => 'Invalid CSRF token']);
+            exit();
+        }
+        
+        if ((empty($message) && !isset($_FILES['message_media'])) || $chat_id <= 0) {
+            echo json_encode(['success' => false, 'error' => 'Message content or chat ID missing']);
             exit();
         }
         
@@ -739,17 +748,44 @@ class PagesController {
         }
         
         if (!$has_access) {
-            header('Location: /message?error=access_denied');
+            echo json_encode(['success' => false, 'error' => 'Access denied']);
             exit();
         }
         
-        // Send the message
-        $success = $queryBuilder->sendMessage($chat_id, $user_id, $message);
+        // Handle media upload
+        $media_path = null;
+        $media_type = 'text';
         
-        if ($success) {
-            header("Location: /message?chat_id=$chat_id");
+        if (isset($_FILES['message_media']) && $_FILES['message_media']['error'] === UPLOAD_ERR_OK) {
+            $file = $_FILES['message_media'];
+            $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+            
+            if (in_array($file['type'], $allowedTypes) && $file['size'] <= 10 * 1024 * 1024) { // 10MB limit
+                $uploadDir = 'uploads/messages/';
+                if (!is_dir($uploadDir)) {
+                    mkdir($uploadDir, 0777, true);
+                }
+                
+                $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+                $filename = 'msg_' . $user_id . '_' . time() . '.' . $extension;
+                $media_path = $uploadDir . $filename;
+                
+                if (move_uploaded_file($file['tmp_name'], $media_path)) {
+                    $media_type = strpos($file['type'], 'gif') !== false ? 'gif' : 'image';
+                }
+            }
+        }
+        
+        // Send the message
+        $messageData = $queryBuilder->sendMessage($chat_id, $user_id, $message, $media_path, $media_type);
+        
+        if ($messageData) {
+            echo json_encode([
+                'success' => true, 
+                'message' => $messageData
+            ]);
         } else {
-            header("Location: /message?chat_id=$chat_id&error=send_failed");
+            echo json_encode(['success' => false, 'error' => 'Failed to send message']);
         }
         exit();
     }
@@ -848,6 +884,83 @@ class PagesController {
         
         echo json_encode(['commentCounts' => $commentCounts]);
         exit();
+    }
+    
+    public function deletePost() {
+        header('Content-Type: application/json');
+        
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_SESSION['user_id'])) {
+            echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+            exit();
+        }
+        
+        try {
+            $input = json_decode(file_get_contents('php://input'), true);
+            $postId = $input['post_id'] ?? 0;
+            
+            if (!$postId) {
+                throw new Exception('Invalid post ID');
+            }
+            
+            $queryBuilder = new queryBuilder();
+            
+            // Verify user owns the post
+            $post = $queryBuilder->getPostById($postId);
+            if (!$post || $post['userId'] != $_SESSION['user_id']) {
+                throw new Exception('You can only delete your own posts');
+            }
+            
+            $result = $queryBuilder->deletePost($postId, $_SESSION['user_id']);
+            
+            if ($result) {
+                echo json_encode(['success' => true, 'message' => 'Post deleted successfully']);
+            } else {
+                throw new Exception('Failed to delete post');
+            }
+            
+        } catch (Exception $e) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+        exit();
+    }
+    
+    public function apiLatestMessages() {
+        header('Content-Type: application/json');
+        
+        if (!isset($_SESSION['user_id'])) {
+            echo json_encode(['messages' => []]);
+            exit();
+        }
+        
+        $chatId = isset($_GET['chat_id']) ? (int)$_GET['chat_id'] : 0;
+        $since = isset($_GET['since']) ? $_GET['since'] : null;
+        
+        if (!$chatId) {
+            echo json_encode(['messages' => []]);
+            exit();
+        }
+        
+        $queryBuilder = new queryBuilder();
+        $messages = $queryBuilder->getLatestMessages($chatId, $_SESSION['user_id'], $since);
+        
+        echo json_encode(['messages' => $messages]);
+        exit();
+    }
+    
+    public function recordProfileView() {
+        if (!isset($_SESSION['user_id'])) {
+            return;
+        }
+        
+        $viewer_id = $_SESSION['user_id'];
+        $profile_id = isset($_GET['id']) ? (int)$_GET['id'] : $viewer_id;
+        
+        // Don't record self-views
+        if ($viewer_id !== $profile_id) {
+            $queryBuilder = new queryBuilder();
+            $queryBuilder->recordProfileView($viewer_id, $profile_id);
+        }
     }
     
     public function deleteNotification() {

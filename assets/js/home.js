@@ -5,6 +5,10 @@
 
 // Global variables
 let sharePostId = null;
+let currentStoryIndex = 0;
+let currentUserStories = [];
+let storyTimer = null;
+let storyDuration = 5000; // 5 seconds per story
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
@@ -22,6 +26,7 @@ function initializeHomePage() {
     initializeFriendRequests();
     initializeShareFunctionality();
     initializeImageModal();
+    initializePostMenus();
 }
 
 /**
@@ -47,7 +52,7 @@ function initializePostInteractions() {
     });
     
     // Comment form handlers
-     document.body.addEventListener('submit', function(e) {
+    document.body.addEventListener('submit', function(e) {
         if (e.target.classList.contains('comment-form')) {
             e.preventDefault();
             submitQuickComment(e);
@@ -61,7 +66,7 @@ function initializePostInteractions() {
 async function togglePostLike(postId) {
     const likeBtn = document.querySelector(`[data-post-id="${postId}"].like-btn`);
     const heartIcon = likeBtn.querySelector('i');
-    const likeCountSpan = likeBtn.querySelector('.like-count');
+    const likeCountSpan = document.querySelector(`[data-post-id="${postId}"] .like-count`);
     
     const isLiked = likeBtn.classList.contains('liked');
     const action = isLiked ? 'unlike' : 'like';
@@ -163,6 +168,9 @@ async function submitQuickComment(event) {
             commentInput.value = '';
             updateCommentCount(postId);
             showToast('success', 'Comment added successfully');
+            
+            // Process mentions in comment
+            processMentions(comment, postId);
         } else {
             showToast('error', 'Failed to add comment');
         }
@@ -177,55 +185,126 @@ async function submitQuickComment(event) {
 }
 
 /**
+ * Process mentions in comments
+ */
+function processMentions(comment, postId) {
+    const mentions = comment.match(/@(\w+)/g);
+    if (mentions) {
+        mentions.forEach(mention => {
+            const username = mention.substring(1);
+            // Send mention notification
+            sendMentionNotification(username, postId);
+        });
+    }
+}
+
+/**
+ * Send mention notification
+ */
+async function sendMentionNotification(username, postId) {
+    try {
+        await fetch('/api/mention-notification', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': window.csrfToken
+            },
+            body: JSON.stringify({
+                username: username,
+                post_id: postId
+            })
+        });
+    } catch (error) {
+        console.error('Mention notification error:', error);
+    }
+}
+
+/**
  * Update comment count for a post
  */
 function updateCommentCount(postId) {
+    const commentCountSpan = document.querySelector(`[data-post-id="${postId}"] .comment-count`);
+    if (commentCountSpan) {
+        const currentCount = parseInt(commentCountSpan.textContent);
+        commentCountSpan.textContent = currentCount + 1;
+    }
+}
+
+/**
+ * Initialize post menus
+ */
+function initializePostMenus() {
+    // Close menus when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.post-actions-menu')) {
+            document.querySelectorAll('.post-menu').forEach(menu => {
+                menu.style.display = 'none';
+            });
+        }
+    });
+}
+
+/**
+ * Toggle post menu
+ */
+function togglePostMenu(postId) {
+    const menu = document.getElementById(`post-menu-${postId}`);
+    const isVisible = menu.style.display === 'block';
+    
+    // Hide all other menus
+    document.querySelectorAll('.post-menu').forEach(m => {
+        m.style.display = 'none';
+    });
+    
+    // Toggle current menu
+    menu.style.display = isVisible ? 'none' : 'block';
+}
+
+/**
+ * Delete post
+ */
+async function deletePost(postId) {
+    if (!confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
+        return;
+    }
+    
     const postCard = document.querySelector(`[data-post-id="${postId}"]`);
-    const commentCountSpan = postCard.querySelector('.comment-count');
-    const currentCount = parseInt(commentCountSpan.textContent);
-    commentCountSpan.textContent = currentCount + 1;
+    
+    try {
+        const response = await fetch('/delete-post', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': window.csrfToken
+            },
+            body: JSON.stringify({
+                post_id: parseInt(postId)
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Remove post from UI with animation
+            postCard.style.animation = 'slideOut 0.3s ease forwards';
+            setTimeout(() => {
+                postCard.remove();
+            }, 300);
+            showToast('success', 'Post deleted successfully');
+        } else {
+            showToast('error', data.message || 'Failed to delete post');
+        }
+    } catch (error) {
+        console.error('Delete post error:', error);
+        showToast('error', 'Network error occurred');
+    }
 }
 
 /**
  * Initialize share functionality
  */
 function initializeShareFunctionality() {
-    // Create share modal if it doesn't exist
-    if (!document.getElementById('shareModal')) {
-        createShareModal();
-    }
-}
-
-/**
- * Create share modal
- */
-function createShareModal() {
-    const modal = document.createElement('div');
-    modal.id = 'shareModal';
-    modal.className = 'share-modal';
-    modal.style.display = 'none';
-    modal.innerHTML = `
-        <div class="share-modal-backdrop" onclick="closeShareModal()"></div>
-        <div class="share-content">
-            <div class="share-header">
-                <h3>Share Post</h3>
-                <button class="close-share-btn" onclick="closeShareModal()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="share-options">
-                <button class="share-option" onclick="copyPostLink()">
-                    <i class="fas fa-link"></i>
-                    <span>Copy Link</span>
-                </button>
-                <button class="share-option" onclick="shareToFriends()">
-                    <i class="fas fa-user-friends"></i>
-                    <span>Share to Friends</span>
-                </button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(modal);
+    // Share modal is created in HTML
 }
 
 /**
@@ -357,7 +436,7 @@ function initializeFriendRequests() {
         if (e.target.classList.contains('accept-btn')) {
             e.stopImmediatePropagation();
             const btn = e.target;
-            if (btn.disabled) return; // Prevent double click
+            if (btn.disabled) return;
             btn.disabled = true;
             const userId = btn.closest('.friend-request').dataset.userId;
             handleFriendRequest('accept', userId).finally(() => {
@@ -366,7 +445,7 @@ function initializeFriendRequests() {
         } else if (e.target.classList.contains('decline-btn')) {
             e.stopImmediatePropagation();
             const btn = e.target;
-            if (btn.disabled) return; // Prevent double click
+            if (btn.disabled) return;
             btn.disabled = true;
             const userId = btn.closest('.friend-request').dataset.userId;
             handleFriendRequest('decline', userId).finally(() => {
@@ -472,6 +551,157 @@ function closeImageModal() {
     const modal = document.getElementById('imageModal');
     modal.style.display = 'none';
     document.body.style.overflow = 'auto';
+}
+
+/**
+ * Story functionality
+ */
+function openUserStories(userId) {
+    const storyElement = document.querySelector(`[data-user-id="${userId}"]`);
+    if (!storyElement) return;
+    
+    try {
+        currentUserStories = JSON.parse(storyElement.dataset.stories);
+        const username = storyElement.dataset.storyUsername;
+        const avatar = storyElement.dataset.storyAvatar;
+        
+        if (currentUserStories.length > 0) {
+            currentStoryIndex = 0;
+            showStoryModal(username, avatar);
+            displayCurrentStory();
+            startStoryTimer();
+        }
+    } catch (error) {
+        console.error('Error opening stories:', error);
+        showToast('error', 'Failed to load stories');
+    }
+}
+
+/**
+ * Show story modal
+ */
+function showStoryModal(username, avatar) {
+    const modal = document.getElementById('storyModal');
+    const userAvatar = document.getElementById('storyUserAvatar');
+    const usernameElement = document.getElementById('storyUsername');
+    
+    userAvatar.src = avatar;
+    usernameElement.textContent = username;
+    
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+/**
+ * Close story modal
+ */
+function closeStoryModal() {
+    const modal = document.getElementById('storyModal');
+    modal.style.display = 'none';
+    document.body.style.overflow = 'auto';
+    
+    if (storyTimer) {
+        clearInterval(storyTimer);
+        storyTimer = null;
+    }
+}
+
+/**
+ * Display current story
+ */
+function displayCurrentStory() {
+    if (!currentUserStories || currentStoryIndex >= currentUserStories.length) return;
+    
+    const story = currentUserStories[currentStoryIndex];
+    const mediaContainer = document.getElementById('storyMediaContainer');
+    const storyTime = document.getElementById('storyTime');
+    
+    // Clear previous content
+    mediaContainer.innerHTML = '';
+    
+    // Create media element
+    let mediaElement;
+    if (story.mediaType === 'video') {
+        mediaElement = document.createElement('video');
+        mediaElement.controls = false;
+        mediaElement.autoplay = true;
+        mediaElement.muted = true;
+        mediaElement.addEventListener('ended', nextStory);
+    } else {
+        mediaElement = document.createElement('img');
+    }
+    
+    mediaElement.src = story.media;
+    mediaElement.className = 'story-media';
+    mediaElement.alt = 'Story';
+    
+    mediaContainer.appendChild(mediaElement);
+    
+    // Update time
+    storyTime.textContent = formatTimeAgo(story.created_at || new Date().toISOString());
+    
+    // Reset progress bar
+    const progressBar = document.getElementById('storyProgress');
+    progressBar.style.width = '0%';
+}
+
+/**
+ * Start story timer
+ */
+function startStoryTimer() {
+    if (storyTimer) {
+        clearInterval(storyTimer);
+    }
+    
+    const progressBar = document.getElementById('storyProgress');
+    let progress = 0;
+    
+    storyTimer = setInterval(() => {
+        progress += 2; // 2% every 100ms = 5 seconds total
+        progressBar.style.width = progress + '%';
+        
+        if (progress >= 100) {
+            nextStory();
+        }
+    }, 100);
+}
+
+/**
+ * Next story
+ */
+function nextStory() {
+    if (currentStoryIndex < currentUserStories.length - 1) {
+        currentStoryIndex++;
+        displayCurrentStory();
+        startStoryTimer();
+    } else {
+        closeStoryModal();
+    }
+}
+
+/**
+ * Previous story
+ */
+function previousStory() {
+    if (currentStoryIndex > 0) {
+        currentStoryIndex--;
+        displayCurrentStory();
+        startStoryTimer();
+    }
+}
+
+/**
+ * Scroll stories horizontally
+ */
+function scrollStories(direction) {
+    const container = document.querySelector('.stories-container');
+    const scrollAmount = 200;
+    
+    if (direction === 'left') {
+        container.scrollLeft -= scrollAmount;
+    } else {
+        container.scrollLeft += scrollAmount;
+    }
 }
 
 /**
@@ -731,9 +961,47 @@ function showToast(type, message) {
     }, 4000);
 }
 
-// Add CSS for new features
+/**
+ * Format time ago
+ */
+function formatTimeAgo(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
+    
+    if (diffInSeconds < 60) {
+        return 'Just now';
+    } else if (diffInSeconds < 3600) {
+        const minutes = Math.floor(diffInSeconds / 60);
+        return `${minutes}m ago`;
+    } else if (diffInSeconds < 86400) {
+        const hours = Math.floor(diffInSeconds / 3600);
+        return `${hours}h ago`;
+    } else if (diffInSeconds < 604800) {
+        const days = Math.floor(diffInSeconds / 86400);
+        return `${days}d ago`;
+    } else {
+        return date.toLocaleDateString();
+    }
+}
+
+// Add CSS for animations
 const style = document.createElement('style');
 style.textContent = `
+    @keyframes slideOut {
+        to {
+            opacity: 0;
+            transform: translateX(-100%);
+        }
+    }
+    
+    @keyframes slideUp {
+        to {
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+    }
+    
     .new-posts-indicator {
         background: var(--primary-color);
         color: white;
@@ -766,103 +1034,6 @@ style.textContent = `
         background: rgba(255, 255, 255, 0.3);
     }
     
-    .share-modal {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        z-index: 1000;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    
-    .share-modal-backdrop {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.7);
-    }
-    
-    .share-content {
-        background: white;
-        border-radius: var(--border-radius-lg);
-        width: 90%;
-        max-width: 400px;
-        position: relative;
-        z-index: 1001;
-        box-shadow: var(--shadow-medium);
-        animation: modalSlideIn 0.3s ease;
-    }
-    
-    .share-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: var(--spacing-md);
-        border-bottom: 1px solid var(--border-color);
-    }
-    
-    .share-header h3 {
-        font-size: 1.2rem;
-        font-weight: 600;
-        margin: 0;
-    }
-    
-    .close-share-btn {
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        background: none;
-        border: none;
-        color: var(--text-secondary);
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.2s ease;
-    }
-    
-    .close-share-btn:hover {
-        background: var(--secondary-color);
-        color: var(--text-primary);
-    }
-    
-    .share-options {
-        padding: var(--spacing-md);
-        display: flex;
-        flex-direction: column;
-        gap: var(--spacing-sm);
-    }
-    
-    .share-option {
-        display: flex;
-        align-items: center;
-        gap: var(--spacing-sm);
-        padding: var(--spacing-sm) var(--spacing-md);
-        border: none;
-        background: var(--secondary-color);
-        border-radius: var(--border-radius);
-        cursor: pointer;
-        transition: all 0.2s ease;
-        font-size: 1rem;
-        font-weight: 500;
-        color: var(--text-primary);
-    }
-    
-    .share-option:hover {
-        background: var(--primary-color);
-        color: white;
-        transform: translateY(-1px);
-    }
-    
-    .share-option i {
-        font-size: 1.1rem;
-    }
-    
     @keyframes slideDown {
         from {
             transform: translateY(-100%);
@@ -871,31 +1042,6 @@ style.textContent = `
         to {
             transform: translateY(0);
             opacity: 1;
-        }
-    }
-    
-    @keyframes slideUp {
-        to {
-            transform: translateY(-100%);
-            opacity: 0;
-        }
-    }
-    
-    @keyframes slideOut {
-        to {
-            transform: translateX(100%);
-            opacity: 0;
-        }
-    }
-    
-    @keyframes modalSlideIn {
-        from {
-            opacity: 0;
-            transform: scale(0.9) translateY(-20px);
-        }
-        to {
-            opacity: 1;
-            transform: scale(1) translateY(0);
         }
     }
 `;

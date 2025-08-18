@@ -15,8 +15,9 @@
 
 .cover-photo-container {
     position: relative;
-    height: 350px;
+    height: 400px;
     overflow: hidden;
+    cursor: pointer;
 }
 
 .cover-photo {
@@ -137,6 +138,88 @@
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+}
+
+.zodiac-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    font-size: 16px;
+    color: var(--primary-color);
+    font-weight: 500;
+}
+
+.zodiac-info i {
+    color: #ffd700;
+}
+
+.profile-viewers {
+    margin-bottom: 24px;
+    padding: 16px;
+    background: var(--secondary-color);
+    border-radius: var(--border-radius);
+}
+
+.profile-viewers h4 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-size: 16px;
+    color: var(--text-primary);
+}
+
+.viewers-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.viewer-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px;
+    background: white;
+    border-radius: var(--border-radius);
+    transition: all 0.2s ease;
+}
+
+.viewer-item:hover {
+    transform: translateX(4px);
+    box-shadow: var(--shadow-light);
+}
+
+.viewer-item img {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.viewer-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.viewer-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+.viewer-time {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.view-all-viewers {
+    text-align: center;
+    padding: 8px;
+    color: var(--primary-color);
+    font-size: 14px;
+    font-weight: 500;
 }
 
 .profile-bio {
@@ -395,11 +478,38 @@
     gap: 16px;
 }
 
+.post-stats {
+    margin-bottom: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid #f7f9fa;
+}
+
+.stats-row {
+    display: flex;
+    gap: 16px;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 14px;
+    color: #657786;
+}
+
+.text-red {
+    color: #e0245e;
+}
+
+.text-blue {
+    color: #1da1f2;
+}
+
 .post-actions .action-btn {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: var(--spacing-xs) var(--spacing-sm);
+    padding: 8px 16px;
     border: none;
     background: none;
     color: #657786;
@@ -408,25 +518,17 @@
     transition: all 0.2s ease;
     font-size: 0.9rem;
     font-weight: 600;
-    min-width: 60px;
+    flex: 1;
     justify-content: center;
 }
 
 .post-actions .action-btn:hover {
     background: #f7f9fa;
     color: #5e4dcd;
-    transform: translateY(-1px);
 }
 
 .post-actions .action-btn i {
     font-size: 1.1rem;
-}
-
-.like-count,
-.comment-count {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text-secondary);
 }
 
 .like-btn.liked i {
@@ -451,6 +553,115 @@
 
 .bookmark-btn:hover i {
     color: #ffad1f;
+}
+
+/* Share Modal */
+.share-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.share-modal-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+}
+
+.share-content {
+    background: white;
+    border-radius: var(--border-radius-lg);
+    width: 90%;
+    max-width: 400px;
+    position: relative;
+    z-index: 1001;
+    box-shadow: var(--shadow-medium);
+    animation: modalSlideIn 0.3s ease;
+}
+
+.share-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-md);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.share-header h3 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.close-share-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.close-share-btn:hover {
+    background: var(--secondary-color);
+    color: var(--text-primary);
+}
+
+.share-options {
+    padding: var(--spacing-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.share-option {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: none;
+    background: var(--secondary-color);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.share-option:hover {
+    background: var(--primary-color);
+    color: white;
+    transform: translateY(-1px);
+}
+
+.share-option i {
+    font-size: 1.1rem;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9) translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
 }
 
 .quick-comment {

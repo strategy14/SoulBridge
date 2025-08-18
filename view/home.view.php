@@ -12,6 +12,7 @@
     <script src="/assets/js/home.js" defer></script>
     <script src="/assets/js/stories.js" defer></script>
     <script src="/assets/js/real-time.js" defer></script>
+    <script src="/assets/js/mentions.js" defer></script>
 </head>
 <body>
     <?php include 'view/nav.view.php'; ?>
@@ -91,25 +92,35 @@
                             <p class="story-name">Your Story</p>
                         </div>
                         
-                        <!-- Grouped user stories -->
+                        <!-- User Stories -->
                         <?php foreach($userStories as $userId => $userData): ?>
-                            <div class="story"
+                            <div class="story" 
                                  data-user-id="<?= $userId ?>"
                                  data-stories='<?= htmlspecialchars(json_encode($userData['stories']), ENT_QUOTES, 'UTF-8') ?>'
                                  data-story-username="<?= htmlspecialchars($userData['user']['firstName']) ?>"
-                                 data-story-avatar="<?= htmlspecialchars($userData['user']['avatar'] ?? 'images/profile.jpg') ?>">
+                                 data-story-avatar="<?= htmlspecialchars($userData['user']['avatar'] ?? 'images/profile.jpg') ?>"
+                                 onclick="openUserStories(<?= $userId ?>)">
                                 <div class="story-image">
-                                    <img src="<?= htmlspecialchars($userData['user']['avatar'] ?? 'images/profile.jpg') ?>" alt="Story" onerror="this.src='images/profile.jpg'">
-                                    <span class="story-count-badge"><?= count($userData['stories']) ?></span>
+                                    <img src="<?= htmlspecialchars($userData['stories'][0]['media'] ?? 'images/profile.jpg') ?>" 
+                                         alt="Story" 
+                                         onerror="this.src='images/profile.jpg'">
+                                    <div class="story-ring"></div>
+                                    <?php if (count($userData['stories']) > 1): ?>
+                                        <span class="story-count"><?= count($userData['stories']) ?></span>
+                                    <?php endif; ?>
                                 </div>
                                 <p class="story-name"><?= htmlspecialchars($userData['user']['firstName']) ?></p>
                             </div>
                         <?php endforeach; ?>
                     </div>
-
-                    <!-- Story Navigation Buttons -->
-                    <button class="story-scroll-btn story-scroll-left"><i class="fas fa-chevron-left"></i></button>
-                    <button class="story-scroll-btn story-scroll-right"><i class="fas fa-chevron-right"></i></button>
+                    
+                    <!-- Story Navigation -->
+                    <button class="story-nav-btn story-nav-left" onclick="scrollStories('left')">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <button class="story-nav-btn story-nav-right" onclick="scrollStories('right')">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
                 </section>
 
                 <!-- Hidden Story Upload Form -->
@@ -131,7 +142,7 @@
                                    placeholder="What's on your mind, <?= htmlspecialchars($data['user']['firstName']) ?>?" 
                                    id="create-post-input" 
                                    name="content" 
-                                   class="post-input"
+                                   class="post-input mentions-input"
                                    required>
                         </div>
 
@@ -152,8 +163,7 @@
                                     Media
                                 </button>
                                 <button type="submit" class="post-btn">
-        
-                                <i class="fas fa-paper-plane"></i>
+                                    <i class="fas fa-paper-plane"></i>
                                     Post
                                 </button>
                             </div>
@@ -203,15 +213,27 @@
                                             </div>
                                         </a>
                                     </div>
-                                    <div class="post-privacy">
-                                        <i class="fas <?= $post['post_public'] ? 'fa-globe' : 'fa-user-friends' ?>"></i>
-                                        <span><?= $post['post_public'] ? 'Public' : 'Friends' ?></span>
+                                    <div class="post-actions-menu">
+                                        <?php if ($post['userId'] == $_SESSION['user_id']): ?>
+                                            <button class="menu-btn" onclick="togglePostMenu(<?= $post['post_id'] ?>)">
+                                                <i class="fas fa-ellipsis-h"></i>
+                                            </button>
+                                            <div class="post-menu" id="post-menu-<?= $post['post_id'] ?>" style="display: none;">
+                                                <button class="menu-item delete-post" onclick="deletePost(<?= $post['post_id'] ?>)">
+                                                    <i class="fas fa-trash"></i>
+                                                    Delete Post
+                                                </button>
+                                            </div>
+                                        <?php endif; ?>
+                                        <div class="post-privacy">
+                                            <i class="fas <?= $post['post_public'] ? 'fa-globe' : 'fa-user-friends' ?>"></i>
+                                        </div>
                                     </div>
                                 </header>
 
                                 <?php if (!empty($post['content'])): ?>
                                     <div class="post-content">
-                                        <p><?= nl2br(htmlspecialchars($post['content'])) ?></p>
+                                        <p><?= processPostContent($post['content']) ?></p>
                                     </div>
                                 <?php endif; ?>
 
@@ -238,30 +260,33 @@
                                         $comment_count = $queryBuilder->getCommentsCountForPost($post['post_id']);
                                         $liked = $queryBuilder->hasUserLikedPost($_SESSION['user_id'], $post['post_id']);
                                         ?>
-                                        <span class="stat-item">
-                                            <i class="fas fa-heart"></i>
-                                            <span class="like-count"><?= $like_count ?></span> likes
-                                        </span>
-                                        <span class="stat-item">
-                                            <i class="fas fa-comment"></i>
-                                            <span class="comment-count"><?= $comment_count ?></span> comments
-                                        </span>
+                                        <div class="stats-row">
+                                            <span class="stat-item">
+                                                <i class="fas fa-heart text-red"></i>
+                                                <span class="like-count"><?= $like_count ?></span>
+                                            </span>
+                                            <span class="stat-item">
+                                                <i class="fas fa-comment text-blue"></i>
+                                                <span class="comment-count"><?= $comment_count ?></span>
+                                            </span>
+                                        </div>
                                     </div>
 
                                     <div class="post-actions">
                                         <button class="action-btn like-btn <?= $liked ? 'liked' : '' ?>" 
-                                                data-post-id="<?= $post['post_id'] ?>">
+                                                data-post-id="<?= $post['post_id'] ?>"
+                                                onclick="togglePostLike(<?= $post['post_id'] ?>)">
                                             <i class="<?= $liked ? 'fas' : 'far' ?> fa-heart"></i>
-                                            <span class="like-count"><?= $like_count ?></span>
+                                            <span>Like</span>
                                         </button>
                                         <button class="action-btn comment-btn" 
                                                 onclick="window.location.href='/comments?post_id=<?= $post['post_id'] ?>'">
                                             <i class="far fa-comment"></i>
-                                            <span class="comment-count"><?= $comment_count ?></span>
+                                            <span>Comment</span>
                                         </button>
                                         <button class="action-btn share-btn"
-                                                data-post-id="<?= $post['post_id'] ?>">
-                                                <onclick="openShareModal(<?= $post['post_id'] ?>)">
+                                                data-post-id="<?= $post['post_id'] ?>"
+                                                onclick="openShareModal(<?= $post['post_id'] ?>)">
                                             <i class="fas fa-share"></i>
                                             <span>Share</span>
                                         </button>
@@ -278,7 +303,7 @@
                                            <input type="text" 
                                                   placeholder="Write a comment..." 
                                                   name="comment" 
-                                                  class="comment-input"
+                                                  class="comment-input mentions-input"
                                                   required>
                                            <button type="submit" class="comment-submit">
                                                <i class="fas fa-paper-plane"></i>
@@ -349,7 +374,7 @@
                     </div>
                 </div>
 
-                <!-- Suggested Friends -->
+                <!-- People You May Know -->
                 <div class="sidebar-card">
                     <div class="card-header">
                         <h3>People You May Know</h3>
@@ -366,10 +391,59 @@
     </main>
 
     <!-- Story Viewer Modal -->
-    <!-- Story Modal will be created by JavaScript -->
+    <div id="storyModal" class="story-modal" style="display: none;">
+        <div class="story-viewer">
+            <div class="story-header">
+                <div class="story-progress">
+                    <div class="progress-bar" id="storyProgress"></div>
+                </div>
+                <div class="story-user-info">
+                    <img id="storyUserAvatar" src="" alt="User" class="story-user-avatar">
+                    <div class="story-user-details">
+                        <span id="storyUsername" class="story-username"></span>
+                        <span id="storyTime" class="story-time"></span>
+                    </div>
+                </div>
+                <button class="story-close" onclick="closeStoryModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="story-content">
+                <button class="story-nav story-prev" onclick="previousStory()">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <div class="story-media-container" id="storyMediaContainer">
+                    <!-- Story media will be loaded here -->
+                </div>
+                <button class="story-nav story-next" onclick="nextStory()">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- Share Modal -->
-    <!-- Share Modal will be created by JavaScript -->
+    <div id="shareModal" class="share-modal" style="display: none;">
+        <div class="share-modal-backdrop" onclick="closeShareModal()"></div>
+        <div class="share-content">
+            <div class="share-header">
+                <h3>Share Post</h3>
+                <button class="close-share-btn" onclick="closeShareModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="share-options">
+                <button class="share-option" onclick="copyPostLink()">
+                    <i class="fas fa-link"></i>
+                    <span>Copy Link</span>
+                </button>
+                <button class="share-option" onclick="shareToFriends()">
+                    <i class="fas fa-user-friends"></i>
+                    <span>Share to Friends</span>
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- Image Modal -->
     <div id="imageModal" class="image-modal" style="display: none;" onclick="closeImageModal()">
@@ -384,12 +458,19 @@
     <!-- Toast Notifications -->
     <div id="toast-container" class="toast-container"></div>
 
+    <!-- Mentions Dropdown -->
+    <div id="mentionsDropdown" class="mentions-dropdown" style="display: none;">
+        <!-- Friend suggestions will be populated here -->
+    </div>
+
     <script>
         // Pass PHP data to JavaScript
         window.userData = <?= json_encode($data['user']) ?>;
         window.csrfToken = '<?= $data['csrf_token'] ?>';
         window.currentUserId = <?= $_SESSION['user_id'] ?>;
-        window.stories = <?= json_encode($stories ?? []) ?>;
+        window.userFriends = <?= json_encode($data['friends'] ?? []) ?>;
+        
+        let sharePostId = null;
     </script>
 </body>
 </html>
@@ -414,5 +495,18 @@ function formatTimeAgo($dateString) {
     } else {
         return 'Just now';
     }
+}
+
+/**
+ * Process post content to highlight mentions
+ */
+function processPostContent($content) {
+    // Convert @mentions to clickable links
+    $content = preg_replace(
+        '/@(\w+)/',
+        '<span class="mention" onclick="window.location.href=\'/search?search=$1\'">@$1</span>',
+        htmlspecialchars($content)
+    );
+    return nl2br($content);
 }
 ?>
