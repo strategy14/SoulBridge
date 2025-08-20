@@ -143,6 +143,16 @@ class StoryViewer {
                 const storyId = storyElement.dataset.storyId;
                 this.openStory(storyId);
             }
+
+            // Scroll button events (delegated, since buttons are dynamically created)
+            if (e.target.closest('.story-scroll-left')) {
+                e.preventDefault();
+                this.scrollStories('left');
+            }
+            if (e.target.closest('.story-scroll-right')) {
+                e.preventDefault();
+                this.scrollStories('right');
+            }
         });
         
         // Keyboard navigation
@@ -165,23 +175,6 @@ class StoryViewer {
                 }
             }
         });
-        
-        document.querySelectorAll('.story[data-user-id]').forEach(storyDiv => {
-            storyDiv.addEventListener('click', function() {
-                const stories = JSON.parse(storyDiv.getAttribute('data-stories'));
-                const userData = {
-                    username: storyDiv.getAttribute('data-story-username'),
-                    avatar: storyDiv.getAttribute('data-story-avatar')
-                };
-                showUserStoryModal(stories, userData, 0); // Your modal logic
-            });
-        });
-        document.querySelector('.story-scroll-left').onclick = function() {
-            document.querySelector('.stories-container').scrollBy({ left: -200, behavior: 'smooth' });
-        };
-        document.querySelector('.story-scroll-right').onclick = function() {
-            document.querySelector('.stories-container').scrollBy({ left: 200, behavior: 'smooth' });
-        };
     }
     
     createModal() {

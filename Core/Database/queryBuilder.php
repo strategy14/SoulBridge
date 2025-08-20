@@ -73,7 +73,8 @@
     public function getUserData($userId) {
         $sql = "SELECT 
                     u.firstName, 
-                    u.lastName, 
+                    u.lastName,
+                    u.birthdate, 
                     p.avatar, 
                     p.bio,
                     p.location
@@ -965,6 +966,7 @@ public function getLastMessageForUser($current_user_id){
     }
     
     public function deleteNotification($notificationId, $userId) {
+        dd($notificationId);
         $sql = "DELETE FROM notifications WHERE id = :id AND toUserId = :userId";
         $stmt = $this->pdo->prepare($sql);
         return $stmt->execute(['id' => $notificationId, 'userId' => $userId]);
@@ -1014,8 +1016,22 @@ public function getLastMessageForUser($current_user_id){
     }
 
 
+    public function getNewPostsCountSince($since) {
+        $sql = "SELECT COUNT(*) AS new_count
+                FROM posts
+                WHERE created_at > :since";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute(['since' => $since]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $result ? $result['new_count'] : 0;
+    }
 
-
+    public function getFriendsOfUser($userId) {
+        $sql = "SELECT friendId FROM friends WHERE userId = :userId AND status = 'accepted'";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute(['userId' => $userId]);
+        return $stmt->fetchAll(PDO::FETCH_COLUMN);
+    }
 
 
 

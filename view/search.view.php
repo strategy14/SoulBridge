@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="/assets/css/search.css" />
     <script src="/assets/js/search.js" defer></script>
 </head>
-<body>
+<body style="margin-top:5%">
     <?php
     $search_term = isset($_GET['search']) ? trim($_GET['search']) : '';
     require_once "view/nav.view.php";

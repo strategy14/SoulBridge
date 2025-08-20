@@ -16,9 +16,8 @@ return $routes = [
         '/api/new-posts-count' => 'PagesController@apiNewPostsCount',
         '/api/posts/like-counts' => 'PagesController@apiLikeCounts',
         '/api/posts/comment-counts' => 'PagesController@apiCommentCounts',
-        '/comments' => 'PagesController@comment'
-        
-    ],
+        '/comments' => 'PagesController@comment',
+    ], 
     'POST' => [
         '/authenticate' => 'PagesController@authenticate',
         '/story-upload' => 'PagesController@storyUpload',

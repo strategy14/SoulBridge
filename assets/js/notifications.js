@@ -12,11 +12,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeNotifications();
 });
 
-/**
- * Initialize notifications functionality
- */
 function initializeNotifications() {
-    initializeTabSwitching();
     initializeRealTimeUpdates();
     initializeNotificationInteractions();
     updateTabCounts();
@@ -102,7 +98,7 @@ function initializeRealTimeUpdates() {
  */
 async function pollForNewNotifications() {
     try {
-        const response = await fetch('/api/notifications/poll', {
+        const response = await fetch('/api/notifications/poll.php', {
             headers: {
                 'X-CSRF-Token': window.csrfToken
             }
@@ -314,39 +310,48 @@ async function deleteNotification(notificationId) {
     if (!confirm('Are you sure you want to delete this notification?')) {
         return;
     }
-    
+
     const notificationElement = document.querySelector(`[data-id="${notificationId}"]`);
     if (!notificationElement) return;
-    
+
     // Add loading state
     notificationElement.style.opacity = '0.5';
     notificationElement.style.pointerEvents = 'none';
-    
+
+    // Ensure notificationId is a valid number
+    const idNum = parseInt(notificationId);
+    if (isNaN(idNum)) {
+        notificationElement.style.opacity = '1';
+        notificationElement.style.pointerEvents = 'auto';
+        showToast('error', 'Invalid notification ID');
+        return;
+    }
+
     try {
-        const response = await fetch('/api/notifications/delete', {
+        const response = await fetch('/api/notifications/delete.php', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-Token': window.csrfToken
             },
             body: JSON.stringify({
-                notification_id: parseInt(notificationId)
+                notification_id: idNum
             })
         });
-        
+
         const data = await response.json();
-        
+
         if (data.success) {
             // Remove notification from UI
-                notificationElement.style.animation = 'slideOut 0.3s ease forwards';
-                setTimeout(() => {
-                    notificationElement.remove();
-                    updateTabCounts();
-                    
-                    // Check if list is empty
-                    checkEmptyState();
-                }, 300);
-            
+            notificationElement.style.animation = 'slideOut 0.3s ease forwards';
+            setTimeout(() => {
+                notificationElement.remove();
+                updateTabCounts();
+
+                // Check if list is empty
+                checkEmptyState();
+            }, 300);
+
             showToast('success', 'Notification deleted');
         } else {
             // Restore element state on error
@@ -496,18 +501,22 @@ function updateTabCounts() {
     const allNotifications = document.querySelectorAll('.notification-item');
     const friendRequestNotifications = document.querySelectorAll('.notification-item[data-type="friend-request"]');
     const systemNotifications = document.querySelectorAll('.notification-item[data-type="system"]');
-    
-    document.getElementById('allCount').textContent = allNotifications.length;
-    document.getElementById('friendRequestsCount').textContent = friendRequestNotifications.length;
-    document.getElementById('systemCount').textContent = systemNotifications.length;
-    
+
+    const allCountEl = document.getElementById('allCount');
+    const friendRequestsCountEl = document.getElementById('friendRequestsCount');
+    const systemCountEl = document.getElementById('systemCount');
+
+    if (allCountEl) allCountEl.textContent = allNotifications.length;
+    if (friendRequestsCountEl) friendRequestsCountEl.textContent = friendRequestNotifications.length;
+    if (systemCountEl) systemCountEl.textContent = systemNotifications.length;
+
     // Hide counts if zero
     [
-        { element: document.getElementById('allCount'), count: allNotifications.length },
-        { element: document.getElementById('friendRequestsCount'), count: friendRequestNotifications.length },
-        { element: document.getElementById('systemCount'), count: systemNotifications.length }
+        { element: allCountEl, count: allNotifications.length },
+        { element: friendRequestsCountEl, count: friendRequestNotifications.length },
+        { element: systemCountEl, count: systemNotifications.length }
     ].forEach(({ element, count }) => {
-        element.style.display = count > 0 ? 'inline' : 'none';
+        if (element) element.style.display = count > 0 ? 'inline' : 'none';
     });
 }
 

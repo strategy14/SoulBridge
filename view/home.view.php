@@ -232,7 +232,7 @@
                                 <?php endif; ?>
 
                                 <footer class="post-footer">
-                                    <div class="post-stats">
+                                    <!-- <div class="post-stats">
                                         <?php
                                         $like_count = $queryBuilder->getLikesCountForPost($post['post_id']);
                                         $comment_count = $queryBuilder->getCommentsCountForPost($post['post_id']);
@@ -246,7 +246,7 @@
                                             <i class="fas fa-comment"></i>
                                             <span class="comment-count"><?= $comment_count ?></span> comments
                                         </span>
-                                    </div>
+                                    </div> -->
 
                                     <div class="post-actions">
                                         <button class="action-btn like-btn <?= $liked ? 'liked' : '' ?>" 
@@ -350,7 +350,7 @@
                 </div>
 
                 <!-- Suggested Friends -->
-                <div class="sidebar-card">
+                <!-- <div class="sidebar-card">
                     <div class="card-header">
                         <h3>People You May Know</h3>
                     </div>
@@ -360,7 +360,7 @@
                             <p>No suggestions available</p>
                         </div>
                     </div>
-                </div>
+                </div> -->
             </aside>
         </div>
     </main>

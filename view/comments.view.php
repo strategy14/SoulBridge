@@ -238,9 +238,6 @@
 </html>
 
 <?php
-/**
- * Helper function to format time ago
- */
 function formatTimeAgo($dateString) {
     $date = new DateTime($dateString);
     $now = new DateTime();

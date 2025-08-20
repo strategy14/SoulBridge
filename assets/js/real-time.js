@@ -8,6 +8,11 @@ let realTimeInterval = null;
 let lastUpdateTime = Date.now();
 let isPageVisible = true;
 
+// Add error suppression flags
+let heartbeatFetchErrorLogged = false;
+let likeCountsFetchErrorLogged = false;
+let commentCountsFetchErrorLogged = false;
+
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     initializeRealTime();
@@ -254,7 +259,7 @@ async function updateLikeCounts() {
             },
             body: JSON.stringify({ post_ids: postIds })
         });
-        
+        likeCountsFetchErrorLogged = false; // Reset on success
         if (response.ok) {
             const data = await response.json();
             
@@ -274,7 +279,12 @@ async function updateLikeCounts() {
             });
         }
     } catch (error) {
-        console.error('Failed to update like counts:', error);
+        if (error instanceof TypeError && !likeCountsFetchErrorLogged) {
+            console.error('Failed to update like counts: Network error or too many redirects.');
+            likeCountsFetchErrorLogged = true;
+        } else if (!(error instanceof TypeError)) {
+            console.error('Failed to update like counts:', error);
+        }
     }
 }
 
@@ -303,7 +313,7 @@ async function updateCommentCounts() {
             },
             body: JSON.stringify({ post_ids: postIds })
         });
-        
+        commentCountsFetchErrorLogged = false; // Reset on success
         if (response.ok) {
             const data = await response.json();
             
@@ -323,7 +333,12 @@ async function updateCommentCounts() {
             });
         }
     } catch (error) {
-        console.error('Failed to update comment counts:', error);
+        if (error instanceof TypeError && !commentCountsFetchErrorLogged) {
+            console.error('Failed to update comment counts: Network error or too many redirects.');
+            commentCountsFetchErrorLogged = true;
+        } else if (!(error instanceof TypeError)) {
+            console.error('Failed to update comment counts:', error);
+        }
     }
 }
 
@@ -416,8 +431,14 @@ async function sendHeartbeat() {
                 'X-CSRF-Token': window.csrfToken || ''
             }
         });
+        heartbeatFetchErrorLogged = false; // Reset on success
     } catch (error) {
-        console.error('Failed to send heartbeat:', error);
+        if (error instanceof TypeError && !heartbeatFetchErrorLogged) {
+            console.error('Failed to send heartbeat: Network error or too many redirects.');
+            heartbeatFetchErrorLogged = true;
+        } else if (!(error instanceof TypeError)) {
+            console.error('Failed to send heartbeat:', error);
+        }
     }
 }
 
@@ -563,8 +584,8 @@ window.addEventListener('beforeunload', function() {
 });
 
 // Add CSS for real-time features
-const style = document.createElement('style');
-style.textContent = `
+const realTimeStyle = document.createElement('style');
+realTimeStyle.textContent = `
     .notification-badge.pulse {
         animation: pulse 1s ease-in-out;
     }
@@ -649,7 +670,7 @@ style.textContent = `
         box-shadow: 0 0 0 2px white, 0 0 0 4px var(--online-color);
     }
 `;
-document.head.appendChild(style);
+document.head.appendChild(realTimeStyle);
 
 // Update notification times every minute
 setInterval(updateNotificationTimes, 60000);

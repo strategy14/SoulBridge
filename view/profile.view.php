@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="/assets/css/navigation.css" />
     <link rel="stylesheet" href="/assets/css/profile.css" />
     <script src="/assets/js/profile.js" defer></script>
+    <script src="/assets/js/home.js" defer></script>
     <script>
         const CSRF_TOKEN = "<?= $_SESSION['csrf_token'] ?>";
         const currentUserId = <?= $current_user_id ?>;
@@ -16,13 +17,6 @@
     </script>
 </head>
 <body>
-    <?php
-    $search_term = isset($_GET['search']) ? trim($_GET['search']) : '';
-    $login_user = $queryBuilder->getUserData($current_user_id);
-    $user = $login_user; 
-    require_once 'view/nav.view.php';
-    $user = $queryBuilder->getUserData($profile_user_id);
-    ?>
 
     <div class="profile-main">
         <!-- Profile Header -->
@@ -71,13 +65,16 @@
                     </div>
                     
                     <!-- Profile Bio -->
-                    <?php if (!empty($user['bio']) || !empty($user['location'])): ?>
+                    <?php if (!empty($user['bio']) || !empty($user['location']) || !empty($zodiacSign)): ?>
                         <div class="profile-bio">
                             <?php if (!empty($user['bio'])): ?>
                                 <p><i class="fas fa-quote-left"></i> <?= htmlspecialchars($user['bio']) ?></p>
                             <?php endif; ?>
                             <?php if (!empty($user['location'])): ?>
                                 <p><i class="fas fa-map-marker-alt"></i> <?= htmlspecialchars($user['location']) ?></p>
+                            <?php endif; ?>
+                            <?php if (!empty($zodiacSign)): ?>
+                                <p><i class="fas fa-star"></i> <?= htmlspecialchars($zodiacSign) ?> (Zodiac)</p>
                             <?php endif; ?>
                         </div>
                     <?php endif; ?>
@@ -202,55 +199,51 @@
                                             <?php endif; ?>
                                         </div>
                                     <?php endif; ?>
-                                    
-                                    <div class="post-actions">
-                                        <div class="action-buttons">
-                                            <button class="action-btn like-btn" data-post-id="<?= $post['post_id'] ?>">
-                                                <?php
-                                                $like_count = $queryBuilder->getLikesCountForPost($post['post_id']);
-                                                $liked = $queryBuilder->hasUserLikedPost($current_user_id, $post['post_id']);
-                                                ?>
-                                                <i class="<?= $liked ? 'fas' : 'far' ?> fa-heart <?= $liked ? 'liked' : '' ?>"></i>
+
+                                    <footer class="post-footer">
+                                        <?php
+                                        $like_count = $queryBuilder->getLikesCountForPost($post['post_id']);
+                                        $liked = $queryBuilder->hasUserLikedPost($current_user_id, $post['post_id']);
+                                        $comment_count = $queryBuilder->getCommentsCountForPost($post['post_id']);
+                                        ?>
+                                        <div class="post-actions">
+                                            <button class="action-btn like-btn <?= $liked ? 'liked' : '' ?>" data-post-id="<?= $post['post_id'] ?>">
+                                                <i class="<?= $liked ? 'fas' : 'far' ?> fa-heart"></i>
                                                 <span class="like-count"><?= $like_count ?></span>
                                             </button>
-                                            
                                             <button class="action-btn comment-btn" onclick="openComments(<?= $post['post_id'] ?>)">
-                                                <?php $comment_count = $queryBuilder->getCommentsCountForPost($post['post_id']); ?>
                                                 <i class="far fa-comment"></i>
                                                 <span class="comment-count"><?= $comment_count ?></span>
                                             </button>
-                                            
-                                            <button class="action-btn share-btn">
-                                                <i class="far fa-share"></i>
-                                            </button>
-                                        </div>
-                                        
-                                        <button class="action-btn bookmark-btn">
-                                            <i class="far fa-bookmark"></i>
+                                        <button class="action-btn share-btn"
+                                                data-post-id="<?= $post['post_id'] ?>"
+                                                onclick="openShareModal(<?= $post['post_id'] ?>)">
+                                            <i class="fas fa-share"></i>
+                                            <span>Share</span>
                                         </button>
-                                    </div>
-                                    
-                                    <!-- Quick Comment Form -->
-                                    <div class="quick-comment">
-                                        <form class="comment-form" data-post-id="<?= $post['post_id'] ?>">
-                                            <input type="hidden" name="post_id" value="<?= $post['post_id'] ?>">
-                                            <input type="hidden" name="user_id" value="<?= $current_user_id ?>">
-                                            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
-                                            <div class="comment-input-wrapper">
-                                                <img src="<?= htmlspecialchars($login_user['avatar'] ?? 'images/profile.jpg') ?>" 
-                                                     alt="Your avatar" 
-                                                     class="comment-avatar">
-                                                <input type="text" 
-                                                       name="comment" 
-                                                       placeholder="Write a comment..." 
-                                                       class="comment-input"
-                                                       required>
-                                                <button type="submit" class="comment-submit-btn">
-                                                    <i class="fas fa-paper-plane"></i>
-                                                </button>
-                                            </div>
-                                        </form>
-                                    </div>
+                                        </div>
+                                        <!-- Quick Comment Form -->
+                                        <div class="quick-comment">
+                                            <form class="comment-form" data-post-id="<?= $post['post_id'] ?>">
+                                                <input type="hidden" name="post_id" value="<?= $post['post_id'] ?>">
+                                                <input type="hidden" name="user_id" value="<?= $current_user_id ?>">
+                                                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                                                <div class="comment-input-wrapper">
+                                                    <img src="<?= htmlspecialchars($login_user['avatar'] ?? 'images/profile.jpg') ?>" 
+                                                         alt="Your avatar" 
+                                                         class="comment-avatar">
+                                                    <input type="text" 
+                                                           name="comment" 
+                                                           placeholder="Write a comment..." 
+                                                           class="comment-input"
+                                                           required>
+                                                    <button type="submit" class="comment-submit-btn">
+                                                        <i class="fas fa-paper-plane"></i>
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </footer>
                                 </article>
                             <?php endforeach; ?>
                         <?php endif; ?>

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -33,32 +34,8 @@
                 </header>
 
                 <div class="card-content">
-                    <!-- Notification Tabs -->
-                    <nav class="notification-tabs">
-                        <button class="tab-btn active" data-tab="all" onclick="switchTab('all')">
-                            <i class="fas fa-bell"></i>
-                            <span>All</span>
-                            <span class="tab-count" id="allCount"><?= count($notifications) ?></span>
-                        </button>
-                        <button class="tab-btn" data-tab="friend-requests" onclick="switchTab('friend-requests')">
-                            <i class="fas fa-user-plus"></i>
-                            <span>Friend Requests</span>
-                            <span class="tab-count" id="friendRequestsCount">
-                                <?= count(array_filter($notifications, function($n) { return strpos($n['message'], 'friend request') !== false; })) ?>
-                            </span>
-                        </button>
-                        <button class="tab-btn" data-tab="system" onclick="switchTab('system')">
-                            <i class="fas fa-cog"></i>
-                            <span>System</span>
-                            <span class="tab-count" id="systemCount">
-                                <?= count(array_filter($notifications, function($n) { return strpos($n['message'], 'system') !== false; })) ?>
-                            </span>
-                        </button>
-                    </nav>
-
-                    <!-- Notification Content -->
+                    <!-- All Notifications Only -->
                     <div class="notification-content">
-                        <!-- All Notifications Tab -->
                         <div class="tab-content active" id="all-tab">
                             <?php if (empty($notifications)): ?>
                                 <div class="empty-state">
@@ -133,136 +110,15 @@
                                 </div>
                             <?php endif; ?>
                         </div>
-
-                        <!-- Friend Requests Tab -->
-                        <div class="tab-content" id="friend-requests-tab">
-                            <div class="notifications-list">
-                                <?php 
-                                $friendRequestNotifications = array_filter($notifications, function($n) { 
-                                    return strpos($n['message'], 'friend request') !== false; 
-                                });
-                                ?>
-                                <?php if (empty($friendRequestNotifications)): ?>
-                                    <div class="empty-state">
-                                        <div class="empty-icon">
-                                            <i class="fas fa-user-plus"></i>
-                                        </div>
-                                        <h3>No friend requests</h3>
-                                        <p>Friend requests will appear here</p>
-                                    </div>
-                                <?php else: ?>
-                                    <?php foreach ($friendRequestNotifications as $notification): ?>
-                                        <div class="notification-item <?= $notification['status'] === 'unread' ? 'unread' : '' ?>" 
-                                             data-id="<?= $notification['id'] ?>"
-                                             data-type="friend-request">
-                                            <div class="notification-avatar">
-                                                <img src="<?= htmlspecialchars($notification['avatar'] ?? 'images/profile.jpg') ?>" 
-                                                     alt="Profile"
-                                                     onerror="this.src='images/profile.jpg'">
-                                                <?php if ($notification['status'] === 'unread'): ?>
-                                                    <div class="unread-indicator"></div>
-                                                <?php endif; ?>
-                                            </div>
-                                            
-                                            <div class="notification-content">
-                                                <div class="notification-text">
-                                                    <strong><?= htmlspecialchars($notification['firstName'] . ' ' . $notification['lastName']) ?></strong>
-                                                    <?= htmlspecialchars($notification['message']) ?>
-                                                </div>
-                                                <div class="notification-meta">
-                                                    <time datetime="<?= $notification['created_at'] ?>">
-                                                        <?= formatTimeAgo($notification['created_at']) ?>
-                                                    </time>
-                                                    <?php if ($notification['status'] === 'unread'): ?>
-                                                        <span class="unread-badge">New</span>
-                                                    <?php endif; ?>
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="notification-actions">
-                                                <?php if ($notification['status'] === 'unread'): ?>
-                                                    <button class="action-btn accept-btn" 
-                                                            onclick="handleFriendRequest('accept', <?= $notification['fromUserId'] ?>, <?= $notification['id'] ?>)">
-                                                        <i class="fas fa-check"></i>
-                                                        Accept
-                                                    </button>
-                                                    <button class="action-btn decline-btn" 
-                                                            onclick="handleFriendRequest('decline', <?= $notification['fromUserId'] ?>, <?= $notification['id'] ?>)">
-                                                        <i class="fas fa-times"></i>
-                                                        Decline
-                                                    </button>
-                                                <?php endif; ?>
-                                            </div>
-                                        </div>
-                                    <?php endforeach; ?>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-
-                        <!-- System Tab -->
-                        <div class="tab-content" id="system-tab">
-                            <div class="notifications-list">
-                                <?php 
-                                $systemNotifications = array_filter($notifications, function($n) { 
-                                    return strpos($n['message'], 'system') !== false; 
-                                });
-                                ?>
-                                <?php if (empty($systemNotifications)): ?>
-                                    <div class="empty-state">
-                                        <div class="empty-icon">
-                                            <i class="fas fa-cog"></i>
-                                        </div>
-                                        <h3>No system notifications</h3>
-                                        <p>System updates and announcements will appear here</p>
-                                    </div>
-                                <?php else: ?>
-                                    <?php foreach ($systemNotifications as $notification): ?>
-                                        <div class="notification-item <?= $notification['status'] === 'unread' ? 'unread' : '' ?>" 
-                                             data-id="<?= $notification['id'] ?>"
-                                             data-type="system">
-                                            <div class="notification-avatar">
-                                                <div class="system-icon">
-                                                    <i class="fas fa-cog"></i>
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="notification-content">
-                                                <div class="notification-text">
-                                                    <strong>System</strong>
-                                                    <?= htmlspecialchars($notification['message']) ?>
-                                                </div>
-                                                <div class="notification-meta">
-                                                    <time datetime="<?= $notification['created_at'] ?>">
-                                                        <?= formatTimeAgo($notification['created_at']) ?>
-                                                    </time>
-                                                    <?php if ($notification['status'] === 'unread'): ?>
-                                                        <span class="unread-badge">New</span>
-                                                    <?php endif; ?>
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="notification-actions">
-                                                <button class="action-btn delete-btn" 
-                                                        onclick="deleteNotification(<?= $notification['id'] ?>)">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    <?php endforeach; ?>
-                                <?php endif; ?>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </main>
 
-    <!-- Toast Container -->
     <div id="toast-container" class="toast-container"></div>
 
     <script>
-        // Pass PHP data to JavaScript
         window.csrfToken = '<?= $_SESSION['csrf_token'] ?>';
         window.notifications = <?= json_encode($notifications) ?>;
     </script>
@@ -270,9 +126,6 @@
 </html>
 
 <?php
-/**
- * Helper function to determine notification type
- */
 function getNotificationType($message) {
     if (strpos($message, 'friend request') !== false) {
         return 'friend-request';
@@ -283,9 +136,6 @@ function getNotificationType($message) {
     }
 }
 
-/**
- * Helper function to format time ago
- */
 function formatNotificationTime($dateString) {
     $date = new DateTime($dateString);
     $now = new DateTime();
@@ -303,4 +153,3 @@ function formatNotificationTime($dateString) {
         return 'Just now';
     }
 }
-?>

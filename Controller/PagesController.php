@@ -98,8 +98,45 @@ class PagesController {
         $current_user_id = $_SESSION['user_id'];
         $profile_user_id = isset($_GET['id']) ? (int)$_GET['id'] : $current_user_id;
 
+        // --- Inserted logic for zodiac and nav ---
+        $search_term = isset($_GET['search']) ? trim($_GET['search']) : '';
         $login_user = $queryBuilder->getUserData($current_user_id);
-        $user = $queryBuilder->getUserData($current_user_id);
+        $user = $login_user; 
+        require_once 'view/nav.view.php';
+        $user = $queryBuilder->getUserData($profile_user_id);
+        function getZodiacSign($birthdate) {
+            if (!$birthdate) return '';
+            $date = date('m-d', strtotime($birthdate));
+            $zodiacs = [
+                ['sign' => 'Capricorn', 'start' => '12-22', 'end' => '01-19'],
+                ['sign' => 'Aquarius',  'start' => '01-20', 'end' => '02-18'],
+                ['sign' => 'Pisces',    'start' => '02-19', 'end' => '03-20'],
+                ['sign' => 'Aries',     'start' => '03-21', 'end' => '04-19'],
+                ['sign' => 'Taurus',    'start' => '04-20', 'end' => '05-20'],
+                ['sign' => 'Gemini',    'start' => '05-21', 'end' => '06-20'],
+                ['sign' => 'Cancer',    'start' => '06-21', 'end' => '07-22'],
+                ['sign' => 'Leo',       'start' => '07-23', 'end' => '08-22'],
+                ['sign' => 'Virgo',     'start' => '08-23', 'end' => '09-22'],
+                ['sign' => 'Libra',     'start' => '09-23', 'end' => '10-22'],
+                ['sign' => 'Scorpio',   'start' => '10-23', 'end' => '11-21'],
+                ['sign' => 'Sagittarius','start'=> '11-22', 'end' => '12-21'],
+            ];
+            foreach ($zodiacs as $zodiac) {
+                if (
+                    ($date >= $zodiac['start'] && $date <= '12-31') ||
+                    ($date >= '01-01' && $date <= $zodiac['end'])
+                ) {
+                    if ($zodiac['start'] <= $zodiac['end']) {
+                        if ($date >= $zodiac['start'] && $date <= $zodiac['end']) return $zodiac['sign'];
+                    } else {
+                        if ($date >= $zodiac['start'] || $date <= $zodiac['end']) return $zodiac['sign'];
+                    }
+                }
+            }
+            return '';
+        }
+        $zodiacSign = getZodiacSign($user['birthdate'] ?? null);
+        // --- End inserted logic ---
 
         $friend_status = null;
         $action_user_id = null;
@@ -912,6 +949,15 @@ class PagesController {
             echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }
         exit();
+    }
+
+    public function apiNewPostsCount() {
+        $queryBuilder = new queryBuilder();
+        $since = isset($_GET['since']) ? intval($_GET['since']) : 0;
+        $count = $queryBuilder->getNewPostsCountSince($since);
+        header('Content-Type: application/json');
+        echo json_encode(['count' => $count]);
+        exit;
     }
 }
 ?>

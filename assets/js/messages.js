@@ -252,7 +252,7 @@ function startMessagePolling() {
         try {
             // Make sure this endpoint exists and is correct in your backend:
             // /api/messages/:chatId/latest
-            const response = await fetch(`/api/messages/${chatId}/latest`);
+            const response = await fetch(`/api/messages/${chatId}/latest.php`);
             if (response.ok) {
                 pollingErrorCount = 0; // reset on success
                 const data = await response.json();
@@ -279,6 +279,12 @@ function startMessagePolling() {
                     scrollToBottom(messagesArea);
                 }
             } else {
+                // Handle 404 error specifically
+                if (response.status === 404) {
+                    clearInterval(pollingInterval);
+                    showToast('Chat not found. Message updates stopped.', 'error');
+                    return;
+                }
                 pollingErrorCount++;
                 if (pollingErrorCount >= MAX_POLLING_ERRORS) {
                     clearInterval(pollingInterval);
